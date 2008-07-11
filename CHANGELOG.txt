@@ -1,0 +1,7 @@
+= RKelly CHANGELOG
+
+== 0.0.1
+
+* Added dynamic method assignment
+* Birthday!
+
