@@ -1,9 +1,9 @@
 #!/usr/bin/env ruby -w
 
-begin require 'rubygems'; rescue LoadError; end
+#begin require 'rubygems'; rescue LoadError; end
 require 'sexp_processor'
 
-class Js2Js < SexpProcessor
+class JsProcessor < SexpProcessor
 
   def self.translate(str)
     require 'rkelly'
