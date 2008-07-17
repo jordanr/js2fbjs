@@ -1,6 +1,3 @@
-#!/usr/bin/env ruby -w
-
-#begin require 'rubygems'; rescue LoadError; end
 require 'sexp_processor'
 
 class JsProcessor < SexpProcessor
@@ -20,7 +17,6 @@ class JsProcessor < SexpProcessor
 
   def process exp
     exp = Sexp.from_array(exp) if Array === exp unless Sexp === exp
-#    p exp
     super exp
   end
 

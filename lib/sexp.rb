@@ -13,34 +13,12 @@ class Sexp < Array # ZenTest FULL
 
   ##
   # Create a new Sexp containing +args+.
-
   def initialize(*args)
     super(args)
   end
 
   ##
-  # Creates a new Sexp for +klass+ or +method+ in +klass+.
-  #
-  # If +walk_ancestors+ is true and +method+ is provided, walks the ancestors
-  # of +klass+ until a method definition is found.
-
-  def self.for(klass, method = nil, walk_ancestors = false)
-    require 'parse_tree'
-    sexp = if walk_ancestors and method then
-             klass.ancestors.each do |kls|
-               sexp = ParseTree.translate kls, method
-               break sexp unless sexp == [nil]
-             end
-           else
-             ParseTree.translate klass, method
-           end
-
-    Sexp.from_array sexp
-  end
-
-  ##
-  # Creates a new Sexp from Array +a+, typically from ParseTree::translate.
-
+  # Creates a new Sexp from Array +a+
   def self.from_array(a)
     ary = Array === a ? a : [a]
 
@@ -70,7 +48,6 @@ class Sexp < Array # ZenTest FULL
 
   ##
   # Returns true if this Sexp's pattern matches +sexp+.
-
   def ===(sexp)
     return nil unless Sexp === sexp
     pattern = self # this is just for my brain
@@ -86,7 +63,6 @@ class Sexp < Array # ZenTest FULL
 
   ##
   # Returns true if this Sexp matches +pattern+.  (Opposite of #===.)
-
   def =~(pattern)
     return pattern === self
   end
@@ -95,7 +71,6 @@ class Sexp < Array # ZenTest FULL
   # Returns true if the node_type is +array+ or +args+.
   #
   # REFACTOR: to TypedSexp - we only care when we have units.
-
   def array_type?
     type = self.first
     @@array_types.include? type
@@ -107,7 +82,6 @@ class Sexp < Array # ZenTest FULL
 
   ##
   # Enumeratates the sexp yielding to +b+ when the node_type == +t+.
-
   def each_of_type(t, &b)
     each do | elem |
       if Sexp === elem then
@@ -120,7 +94,6 @@ class Sexp < Array # ZenTest FULL
   ##
   # Replaces all elements whose node_type is +from+ with +to+. Used
   # only for the most trivial of rewrites.
-
   def find_and_replace_all(from, to)
     each_with_index do | elem, index |
       if Sexp === elem then
@@ -133,9 +106,8 @@ class Sexp < Array # ZenTest FULL
 
   ##
   # Replaces all Sexps matching +pattern+ with Sexp +repl+.
-
   def gsub(pattern, repl)
-    return repl if pattern == self
+    return repl.clone if pattern == self # I don't why we have to clone but we do or I get nil?
 
     new = self.map do |subset|
       case subset
@@ -156,7 +128,6 @@ class Sexp < Array # ZenTest FULL
 
   ##
   # Returns the node named +node+, deleting it if +delete+ is true.
-
   def method_missing(meth, delete=false)
     matches = find_all { | sexp | Sexp === sexp and sexp.first == meth }
 
@@ -180,7 +151,6 @@ class Sexp < Array # ZenTest FULL
 
   ##
   # Returns the Sexp without the node_type.
-
   def sexp_body
     self[1..-1]
   end
@@ -188,7 +158,6 @@ class Sexp < Array # ZenTest FULL
   ##
   # If run with debug, Sexp will raise if you shift on an empty
   # Sexp. Helps with debugging.
-
   def shift
     raise "I'm empty" if self.empty?
     super
@@ -197,7 +166,6 @@ class Sexp < Array # ZenTest FULL
   ##
   # Returns the bare bones structure of the sexp.
   # s(:a, :b, s(:c, :d), :e) => s(:a, s(:c))
-
   def structure
     result = self.class.new
     if Array === self.first then
@@ -213,7 +181,6 @@ class Sexp < Array # ZenTest FULL
 
   ##
   # Replaces the Sexp matching +pattern+ with +repl+.
-
   def sub(pattern, repl)
     return repl.dup if pattern == self
 
@@ -275,7 +242,6 @@ end
 
 ##
 # This is just a stupid shortcut to make indentation much cleaner.
-
 def s(*args)
   Sexp.new(*args)
 end

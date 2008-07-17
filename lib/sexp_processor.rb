@@ -1,4 +1,3 @@
-
 $TESTING = false unless defined? $TESTING
 
 require 'sexp'
@@ -172,7 +171,6 @@ class SexpProcessor
     type = exp.first
 
     self.context.unshift type # FIX: first one doubles up because process already unshifted -- look at moving initial rewrite up above
-#    exp.map! { |sub| Array === sub ? rewrite(sub) : sub } 
 
     begin
       meth = @rewriters[type]
