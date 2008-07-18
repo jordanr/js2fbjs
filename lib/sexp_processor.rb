@@ -1,3 +1,4 @@
+# Courtesy of the ParseTree Gem
 $TESTING = false unless defined? $TESTING
 
 require 'sexp'
@@ -167,6 +168,23 @@ class SexpProcessor
     end
   end
 
+  ##
+  # Called by process before any process functions.  Goes from top
+  # to bottom of Sexp executing any rewrite_<type> functions.  Lower
+  # rewrite functions override higher rewrite functions.
+  #
+  # == Examples
+  #
+  # def rewrite_var
+  #  s(:foo, s(:bar, 'hello'))
+  # end
+  #
+  # def rewrite_bar
+  #  s(:baz, 'world')
+  # end
+  #
+  # rewrite(s(:var, 'hello'))
+  # -> s(:foo, s(:baz, 'world'))
   def rewrite(exp)
     type = exp.first
 
@@ -188,7 +206,6 @@ class SexpProcessor
   # Default Sexp processor.  Invokes process_<type> methods matching
   # the Sexp type given.  Performs additional checks as specified by
   # the initializer.
-
   def process(exp)
     return nil if exp.nil?
 

@@ -1,3 +1,4 @@
+# Courtesy of the ParseTree Gem.
 
 $TESTING ||= false # unless defined $TESTING
 
@@ -7,7 +8,7 @@ $TESTING ||= false # unless defined $TESTING
 # the Sexp. The type is used by SexpProcessor to determine whom to
 # dispatch the Sexp to for processing.
 
-class Sexp < Array # ZenTest FULL
+class Sexp < Array
 
   @@array_types = [ :array, :args, ]
 
@@ -48,6 +49,12 @@ class Sexp < Array # ZenTest FULL
 
   ##
   # Returns true if this Sexp's pattern matches +sexp+.
+  # 
+  # == Examples
+  # s(:var, 'hello') === s(:var, 'hello')
+  #  -> true
+  # s(:str, 'hello') === s(:var, 'hello')
+  #  -> false
   def ===(sexp)
     return nil unless Sexp === sexp
     pattern = self # this is just for my brain

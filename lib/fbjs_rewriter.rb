@@ -38,16 +38,16 @@ class FbjsRewriter < JsProcessor
     SET_ATTR = 'setAttribute'
     SET_ATTR_ARGS = 3
 
-    # style => getWidth, setWidth, getColor, setColor, ...
+    # style => getStyle('width'), setStyle('width', '10px'), ...
     STYLE = 'style'
 
-    # innerText, textContent => setTextValue
-    SPECIALS = {
-	{ 'innerText' => 'setTextValue' },
-	{ 'textContent' => 'setTextValue' }
-    }
-    # innerHtml => setInnerFBML, setInnerXHTML
-    AMBIGUOUS = { 'innerHtml' => 'setInnerFBML' }
+    # innerText && textContent => setTextValue
+    #    SPECIALS = {
+    #	{ 'innerText' => 'setTextValue' },
+    #	{ 'textContent' => 'setTextValue' }
+    #}
+    # innerHtml => setInnerFBML || setInnerXHTML
+    # AMBIGUOUS = { 'innerHtml' => 'setInnerFBML' }
 
     # Dialogs
     DIALOG = 'Dialog'
@@ -61,17 +61,22 @@ class FbjsRewriter < JsProcessor
     DIALOG_VAR = '__dlg'   
     ONCONFIRM = 'onconfirm' 
     ONCANCEL = 'oncancel'
+    FUNCTION = 'function'
+    # Undefined 
+    # getAbsoluteTop 	Returns the elements absolute position relative to the top of the page. Useful because of lack of offsetParent support.
+    # getAbsoluteLeft 	Same as getAbsoluteTop, but horizontally. 
+    # getRootElement 	used as document.getRootElement - returns the top-level element of your profile box or canvas page
 
   # Takes care of:
   # * banned setters
-  # * style
+  # * set style
   def rewrite_OpEqual(exp)
     if(type?(exp[1], :DotAccessor) && SETTERS.include?(exp[1].last))
       exp.shift # get rid of type
       dot = exp.shift
       s(:FunctionCall, s(dot.shift, dot.shift, etter(dot.shift) ), exp.shift )
-    elsif(type?(exp[1], :DotAccessor) && type?(exp[1][1], :DotAccessor) && exp[1][1].last == STYLE)
-      exp.shift # rid of type
+    elsif(style?(exp[1]) )
+      exp.shift # rid of OpEqual
       dot1 = exp.shift # has new arg
       dot1.shift # rid of type
       dot2 = dot1.shift # has base, STYLE accessor
@@ -84,17 +89,38 @@ class FbjsRewriter < JsProcessor
 
   # Takes care of:
   # * banned getters
+  # * get style
   def rewrite_DotAccessor(exp)
     if(GETTERS.include?(exp.last))
       s(:FunctionCall, s(exp.shift, exp.shift, etter(exp.shift, GET) ), s(:Arguments) )
+    elsif(style?(exp)) #  s(:dot, s(:dot, .., style), accessor)
+      exp.shift # rid of DotAccessor type
+      dot2 = exp.shift # has base, STYLE accessor
+      arg = exp.shift
+      s(:FunctionCall, s(dot2.shift, dot2.shift, etter(STYLE, 'get')), s(:Arguments, s(:String, "'#{arg}'")) )
     else
       exp
     end
   end	
 
   # Takes care of:
+  # * confirms with no callbacks
+  def rewrite_ExpressionStatement(exp)
+    if(confirm?(exp.last) )
+	exp.shift # get rid of Expression Statment type
+	fun = exp.shift
+	if(not type?(fun.last, :Arguments) or (fun.last.length != DIALOG_ARGS) )
+          $stderr.puts "WARNING: Tried to rewrite #{CONFIRM} with #{fun.last.length} length instead of #{DIALOG_ARGS}" 
+  	  return exp
+        end
+        generate_confirm(fun)
+    else	
+	exp
+    end
+  end
+
+  # Takes care of:
   # * setAttribute
-  # * confirms with no callback
   def rewrite_FunctionCall(exp)
     if(type?(exp[1], :DotAccessor) && exp[1].last==SET_ATTR)
 	dot = exp[1]
@@ -107,8 +133,6 @@ class FbjsRewriter < JsProcessor
           attribute.gsub!(/'([a-z]+)'/,'\1')
           s(exp.shift, s(dot.shift, dot.shift, etter(attribute)), s(type,exp.last.shift))
 	end
-    elsif(confirm?(exp) ) # must be last elsif, see confirm?
-      generate_confirm(exp)
     else	
 	exp
     end
@@ -119,12 +143,16 @@ class FbjsRewriter < JsProcessor
   # * confirms with callback(s)
   def rewrite_If(exp)
     if(confirm?(exp[1]))
+	if(not type?(exp[1].last, :Arguments) or (exp[1].last.length != DIALOG_ARGS) )
+          $stderr.puts "WARNING: Tried to rewrite #{CONFIRM} with #{exp[1].last.length} length instead of #{DIALOG_ARGS}" 
+  	  return exp
+        end
 	exp.shift # :If
 	x = s(:dummy, generate_var_assign(THIS_VAR, s(:This, 'this')),
 			   generate_confirm(exp.shift)
         )
-	x.push(generate_event(exp.shift.last.gsub(s(:This, 'this'),s(:Resolve, THIS_VAR)), DIALOG_VAR, ONCONFIRM)) # use .last to remove extra block
- 	x.push(generate_event(exp.shift.gsub(s(:This,'this'),s(:Resolve,THIS_VAR)), DIALOG_VAR, ONCANCEL)) if(exp.first)
+	x.push(generate_event(exp.shift.last.gsub(s(:This, 'this'),s(:Resolve, THIS_VAR)), DIALOG_VAR, ONCONFIRM)) # if
+ 	x.push(generate_event(exp.shift.last.gsub(s(:This,'this'),s(:Resolve,THIS_VAR)), DIALOG_VAR, ONCANCEL)) if(exp.first) # else?
 	x
     else
 	exp
@@ -143,7 +171,7 @@ class FbjsRewriter < JsProcessor
 
   def generate_event(exp, var, event)
     s(:OpEqual, s(:DotAccessor, s(:Resolve, var), event),
-		s(:FunctionExpr, '', s() , s(:FunctionBody, exp))
+		s(:FunctionExpr, FUNCTION, s() , s(:FunctionBody, exp))
     )
   end
 
@@ -152,13 +180,11 @@ class FbjsRewriter < JsProcessor
   end
   ############################################################
   # Utility Methods: 
+  def style?(list)
+    type?(list, :DotAccessor) && type?(list[1], :DotAccessor) && list[1].last == STYLE
+  end
   def confirm?(list)
-    if( type?(list, :FunctionCall) && type?(list[1], :Resolve) && list[1].last==CONFIRM )
-	return true unless(not type?(list.last, :Arguments) or (list.last.length != DIALOG_ARGS) )
-        $stderr.puts "WARNING: Tried to rewrite #{CONFIRM} with #{list.last.length} length instead of #{DIALOG_ARGS}" 
-	return false
-    end
-    return false
+    type?(list, :FunctionCall) && type?(list[1], :Resolve) && list[1].last==CONFIRM
   end
 
   # change attribute to getter or setter 
