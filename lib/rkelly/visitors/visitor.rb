@@ -54,15 +54,9 @@ module RKelly
         end
       end
 
-      NAME_VALUE_NODES.each do |type|
+      (NAME_VALUE_NODES + SINGLE_VALUE_NODES).each do |type|
         define_method(:"visit_#{type}Node") do |o|
           return o.value ? o.value.accept(self) : nil
-        end
-      end
-
-      SINGLE_VALUE_NODES.each do |type|
-        define_method(:"visit_#{type}Node") do |o|
-          o.value.accept(self)
         end
       end
 

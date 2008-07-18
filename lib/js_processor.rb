@@ -26,27 +26,27 @@ class JsProcessor < SexpProcessor
       def process_SourceElements(exp)
         res = exp.map { |x| "#{indent}#{process(x)}" }.join("\n")
 	exp.clear
-	res
+	res.to_s
       end
       def process_Arguments(exp)
         res = exp.map { |x| process(x) }.join(', ')
 	exp.clear
-	res
+	res.to_s
       end
       def process_Array(exp)
         res = "[#{exp.map { |x| x ? process(x) : '' }.join(', ')}]"
 	exp.clear
-	res
+	res.to_s
       end
       def process_VarStatement(exp)
         res = "var #{exp.map { |x| process(x) }.join(', ')};"
 	exp.clear
-	res
+	res.to_s
       end
       def process_ConstStatement(exp)
         res = "const #{exp.map { |x| process(x) }.join(', ')};"
 	exp.clear
-	res
+	res.to_s
       end
       def process_ObjectLiteral(exp)
         @indent += 1
@@ -55,7 +55,7 @@ class JsProcessor < SexpProcessor
           (exp.length > 0 ? "\n" : '') + '}'
         @indent -= 1
 	exp.clear # get rid of it now
-        lit
+        lit.to_s
       end
 
       def process_CaseBlock(exp)
@@ -63,7 +63,7 @@ class JsProcessor < SexpProcessor
         res = "{\n" + (exp ? exp.map { |x| process(x) }.join('') : '') +
           "#{@indent -=1; indent}}"
 	exp.clear
-	res
+	res.to_s
       end
     ####### end of array nodes
 
@@ -92,7 +92,7 @@ class JsProcessor < SexpProcessor
       end
 
       def process_FunctionExpr(exp)
-        "function #{exp.shift}(#{exp.shift.map { |x| process(x) }.join(', ')}) " +
+        "#{exp.shift}(#{exp.shift.map { |x| process(x) }.join(', ')}) " +
           "#{process(exp.shift)}"
       end
 
@@ -115,7 +115,8 @@ class JsProcessor < SexpProcessor
       def process_Try(exp)
         res = "try #{process(exp.shift)}"
 	catch = exp.shift
-	res += (catch ? " catch(catch) #{process(exp.shift)}" : '') 
+	catch_block = exp.shift
+	res += (catch ? " catch(#{catch}) #{process(catch_block)}" : '') 
 	finally = exp.shift
 	res + (finally ? " finally #{process(finally)}" : '')
       end
@@ -130,15 +131,15 @@ class JsProcessor < SexpProcessor
       end
 ########
 
-      VALUE_NODES = %w{
+      EXP = %w{
         Number Parameter Regexp Resolve String
       }
-      VALUE_NODES.each do |type|
+      EXP.each do |type|
         define_method(:"process_#{type}") do |exp|
-          exp.shift
+          exp.shift.to_s
         end
       end
-      FIXED_VALUE_NODES = 
+      FIXED_EXP = 
       [
         [:EmptyStatement, ';'],
 	[:False, 'false'],
@@ -146,7 +147,7 @@ class JsProcessor < SexpProcessor
 	[:This, 'this'],
 	[:True, 'true']
       ]
-      FIXED_VALUE_NODES.each do |type, value|
+      FIXED_EXP.each do |type, value|
         define_method(:"process_#{type}") do |exp|
 	  exp.shift # throw away
           value
@@ -155,7 +156,7 @@ class JsProcessor < SexpProcessor
 
       [
 	[:Break, 'break'],
-	[:Continue, 'continue']
+	[:Continue, 'continue'],
       ].each do |type, keyword|
         define_method(:"process_#{type}") do |exp|
 	  value = exp.shift
@@ -163,10 +164,11 @@ class JsProcessor < SexpProcessor
         end
       end
       def process_Return(exp)
-          "return" + (exp.first ? " #{process(exp.shift)}" : '') + ';'       
+	  value = exp.shift
+          "return" + (value ? " #{process(value)}" : '') + ';'       
       end
 
-# op? proc op?
+      PROC =
       [
 	[:AssignExpr, ' = '],
 	[:BitwiseNot, '~'],
@@ -177,73 +179,76 @@ class JsProcessor < SexpProcessor
 	[:UnaryMinus, '-'],
 	[:UnaryPlus, '+'],
 	[:Throw, 'throw ', ';'],
-	[:Typeof, 'typeof '],
+	[:TypeOf, 'typeof '],
 	[:Void, 'void(', ')']
-      ].each do |name, op1, op2|
+      ]
+      PROC.each do |name, op1, op2|
         define_method(:"process_#{name}") do |exp|
           "#{op1}#{process(exp.shift)}#{op2}"
         end
       end
 
-# op? proc op? proc op?
+      PROC_PROC = 
       [
-        [:Add, '+'],
-        [:BitAnd, '&'],
-        [:BitOr, '|'],
-        [:BitXOr, '^'],
+        [:Add, ' + '],
+        [:BitAnd, ' & '],
+        [:BitOr, ' | '],
+        [:BitXOr, ' ^ '],
 	[:BracketAccessor, '[', '',']'],
 	[:Comma, ', '],
-        [:Divide, '/'],
+        [:Divide, ' / '],
 	[:DoWhile, ' while(', 'do ', ');'],
-        [:Equal, '=='],
+        [:Equal, ' == '],
 	[:FunctionCall, '(', '', ')'],
-        [:Greater, '>'],
-        [:GreaterOrEqual, '>='],
-        [:In, 'in'],
-        [:InstanceOf, 'instanceof'],
-        [:LeftShift, '<<'],
-        [:Less, '<'],
-        [:LessOrEqual, '<='],
-        [:LogicalAnd, '&&'],
-        [:LogicalOr, '||'],
-        [:Modulus, '%'],
-        [:Multiply, '*'],
+        [:Greater, ' > '],
+        [:GreaterOrEqual, ' >= '],
+        [:In, ' in '],
+        [:InstanceOf, ' instanceof '],
+        [:LeftShift, ' << '],
+        [:Less, ' < '],
+        [:LessOrEqual, ' <= '],
+        [:LogicalAnd, ' && '],
+        [:LogicalOr, ' || '],
+        [:Modulus, ' % '],
+        [:Multiply, ' * '],
 	[:NewExpr, '(', 'new ', ')'],
-        [:NotEqual, '!='],
-        [:NotStrictEqual, '!=='],
-        [:OpAndEqual, '&='],
-        [:OpDivideEqual, '/='],
-        [:OpLShiftEqual, '<<='],
-	[:OpEqual, '='],
-        [:OpMinusEqual, '-='],
-        [:OpModEqual, '%='],
-        [:OpMultiplyEqual, '*='],
-        [:OpOrEqual, '|='],
-        [:OpPlusEqual, '+='],
-        [:OpRShiftEqual, '>>='],
-        [:OpURShiftEqual, '>>>='],
-        [:OpXOrEqual, '^='],
-        [:RightShift, '>>'],
-        [:StrictEqual, '==='],
-        [:Subtract, '-'],
-        [:UnsignedRightShift, '>>>'],
+        [:NotEqual, ' != '],
+        [:NotStrictEqual, ' !== '],
+        [:OpAndEqual, ' &= '],
+        [:OpDivideEqual, ' /= '],
+        [:OpLShiftEqual, ' <<= '],
+	[:OpEqual, ' = '],
+        [:OpMinusEqual, ' -= '],
+        [:OpModEqual, ' %= '],
+        [:OpMultiplyEqual, ' *= '],
+        [:OpOrEqual, ' |= '],
+        [:OpPlusEqual, ' += '],
+        [:OpRShiftEqual, ' >>= '],
+        [:OpURShiftEqual, ' >>>= '],
+        [:OpXOrEqual, ' ^= '],
+        [:RightShift, ' >> '],
+        [:StrictEqual, ' === '],
+        [:Subtract, ' - '],
+        [:UnsignedRightShift, ' >>> '],
 	[:While, ') ', 'while('],
 	[:Switch, ') ', 'switch('],
 	[:With, ') ', 'with(']
-      ].each do |name, op_mid, op_pre, op_post|
+      ]
+      PROC_PROC.each do |name, op_mid, op_pre, op_post|
         define_method(:"process_#{name}") do |exp|
           "#{op_pre}#{process(exp.shift)}#{op_mid}#{process(exp.shift)}#{op_post}"
         end
       end
 
-# op? exp op? proc op?
+      EXP_PROC = 
       [
 	[:Prefix],
 	[:Label, ': '],
 	[:Property, ': '],
 	[:GetterProperty, '','get '],
 	[:SetterProperty, '','set ']
-      ].each do |name, op_mid, op_pre, op_post|
+      ]
+      EXP_PROC.each do |name, op_mid, op_pre, op_post|
         define_method(:"process_#{name}") do |exp|
           "#{op_pre}#{exp.shift}#{op_mid}#{process(exp.shift)}#{op_post}"
         end
@@ -260,9 +265,6 @@ class JsProcessor < SexpProcessor
       def process_DotAccessor(exp)
         "#{process(exp.shift)}.#{exp.shift}"
       end
-
-  ############################################################
-  # Rewriters:
 
   ############################################################
   # Utility Methods: 
