@@ -99,7 +99,7 @@ class JsProcessor < SexpProcessor
 
       def process_FunctionExpr(exp)
 	name = exp.shift
-        "#{name ? name : 'function'}(#{exp.shift.map { |x| process(x) }.join(', ')}) " +
+        "#{name}(#{exp.shift.map { |x| process(x) }.join(', ')}) " +
           "#{process(exp.shift)}"
       end
 

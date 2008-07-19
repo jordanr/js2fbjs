@@ -1,4 +1,12 @@
 class JsProcessorTest < Test::Unit::TestCase
+  def test_anonymous_function_expr
+    assert_js('a = function() { };')
+  end
+
+  def test_anonymous_function_expr_with_args
+    assert_js('a = function(a, b, c) { };')
+  end
+
   def test_this_node
     assert_js('this.foo;')
   end

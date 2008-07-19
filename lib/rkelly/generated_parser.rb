@@ -14,7 +14,7 @@ module RKelly
 
   class GeneratedParser < Racc::Parser
 
-module_eval <<'..end lib/parser.y modeval..id505b346461', 'lib/parser.y', 858
+module_eval <<'..end lib/parser.y modeval..id64d324fac5', 'lib/parser.y', 858
   include RKelly::Nodes
 
   def allow_auto_semi?(error_token)
@@ -33,7 +33,7 @@ module_eval <<'..end lib/parser.y modeval..id505b346461', 'lib/parser.y', 858
   def debug(*args)
     logger.debug(*args) if logger
   end
-..end lib/parser.y modeval..id505b346461
+..end lib/parser.y modeval..id64d324fac5
 
 ##### racc 1.4.5 generates ###
 
@@ -3207,7 +3207,7 @@ module_eval <<'.,.,', 'lib/parser.y', 819
 
 module_eval <<'.,.,', 'lib/parser.y', 826
   def _reduce_288( val, _values, result )
-      result = FunctionExprNode.new(nil, val[4])
+      result = FunctionExprNode.new(val[0], val[4])
       debug(val[4])
    result
   end
@@ -3215,7 +3215,7 @@ module_eval <<'.,.,', 'lib/parser.y', 826
 
 module_eval <<'.,.,', 'lib/parser.y', 830
   def _reduce_289( val, _values, result )
-      result = FunctionExprNode.new(nil, val[5], val[2])
+      result = FunctionExprNode.new(val[0], val[5], val[2])
       debug(val[5])
    result
   end
