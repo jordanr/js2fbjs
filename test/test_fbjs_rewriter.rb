@@ -1,4 +1,9 @@
 class FbjsRewriterTest < Test::Unit::TestCase
+  CONFIRM_DIALOG = "var __dlg = new Dialog().showChoice('The page says:', 'Are you sure?');"
+  THIS_ASSIGN = "var __obj = this;"
+  FORM_CONFIRM = "__dlg.onconfirm = function() { __obj.getForm().submit() }"
+  LINK_CONFIRM = "__dlg.onconfirm = function() { document.setLocation(__obj.getHref()) }"
+
   # rewriting tests
   FbjsRewriter::GETTERS.each do |getter|
     define_method(:"test_get_for_#{getter}") do
@@ -16,6 +21,10 @@ class FbjsRewriterTest < Test::Unit::TestCase
     assert_fbjs("a.setMethod(b.getMethod());", "a.setAttribute('method', b.method);")
   end
 
+  def test_set_attribute_with_too_many_args
+    assert_fbjs("a.setAttribute('method', 'delete', 'maybe');")
+  end
+
   def test_set_style
     assert_fbjs("a.setStyle('width', '320px');", "a.style.width = '320px';")
     assert_fbjs("a.setStyle('width', b.getMethod());", "a.style.width = b.method;")
@@ -24,17 +33,40 @@ class FbjsRewriterTest < Test::Unit::TestCase
     assert_fbjs("a.getStyle('width');", "a.style.width;")
   end
 
-  CONFIRM_DIALOG = "var __dlg = new Dialog().showChoice('The page says:', 'Are you sure?');"
-
-  def test_confirm_without_callbacks
+  def test_confirm_expression
     assert_fbjs(CONFIRM_DIALOG, "confirm('Are you sure?');")
+  end
+
+  def test_confirm_expression_with_too_many_args
+    assert_fbjs("confirm('Are you sure?', 'really?');")
+  end
+
+  def test_confirm_return
+    assert_fbjs("#{CONFIRM_DIALOG}return false;", "return confirm('Are you sure?');")
+  end
+
+  def test_confirm_return_in_form
+    assert_fbjs("#{THIS_ASSIGN}#{CONFIRM_DIALOG}#{FORM_CONFIRM}return false;", "return confirm('Are you sure?');", 'form')
+  end
+
+  def test_confirm_return_in_link
+    assert_fbjs("#{THIS_ASSIGN}#{CONFIRM_DIALOG}#{LINK_CONFIRM}return false;", "return confirm('Are you sure?');", 'a')
+  end
+
+  def test_confirm_return_with_too_many_args
+    assert_fbjs("return confirm('Are you sure?', 'yes?');")
   end
 
   def test_if_confirm_without_block
     assert_fbjs("var __obj = this;#{CONFIRM_DIALOG}__dlg.onconfirm = function() { do_something() }", "if(confirm('Are you sure?')) do_something();")
   end
+
   def test_if_confirm_with_block
     assert_fbjs("var __obj = this;#{CONFIRM_DIALOG}__dlg.onconfirm = function() { do_something(); }", "if(confirm('Are you sure?')) { do_something(); }")
+  end
+
+  def test_if_confirm_with_too_many_args
+    assert_fbjs("if(confirm('Are you sure?', 'hmm?')) do_something();")
   end
 
   def test_if_else_confirm_without_blocks
@@ -51,6 +83,11 @@ class FbjsRewriterTest < Test::Unit::TestCase
 		else {
 		  do_something_else();
 		}")
+  end
+
+  def test_if_else_confirm_with_too_many_args
+    assert_fbjs("if(confirm('Are you sure?', 'hmmm?')) do_something(); 
+		else do_something_else();")
   end
 
   def test_if_confirm_with_thises_to_sub

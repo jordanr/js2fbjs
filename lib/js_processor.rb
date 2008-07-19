@@ -4,7 +4,13 @@ class JsProcessor < SexpProcessor
 
   def self.translate(str)
     require 'rkelly'
-    self.new.process(RKelly::Parser.new.parse(str).to_sexp)
+    ans = self.new.process(RKelly::Parser.new.parse(str).to_sexp)
+    if(ans.empty?) 
+      $stderr.puts "WARNING: parse error on '#{str}'"
+      str
+    else
+      ans
+    end
   end
 
   def initialize
@@ -92,7 +98,8 @@ class JsProcessor < SexpProcessor
       end
 
       def process_FunctionExpr(exp)
-        "#{exp.shift}(#{exp.shift.map { |x| process(x) }.join(', ')}) " +
+	name = exp.shift
+        "#{name ? name : 'function'}(#{exp.shift.map { |x| process(x) }.join(', ')}) " +
           "#{process(exp.shift)}"
       end
 

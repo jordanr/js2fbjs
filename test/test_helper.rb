@@ -2,8 +2,8 @@ require 'test/unit'
 require 'js2fbjs'
 
 class Test::Unit::TestCase
-  def assert_fbjs(expected, actual = nil)
-    fbjs = FbjsRewriter.translate(actual || expected)
+  def assert_fbjs(expected, actual = nil, tag = nil)
+    fbjs = FbjsRewriter.translate(actual || expected, tag)
     fbjs = fbjs.gsub(/\n/, ' ').gsub(/\s+/, ' ')
     expected = expected.gsub(/\n/, ' ').gsub(/\s+/, ' ')
     assert_equal(expected, fbjs)
