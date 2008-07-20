@@ -1,6 +1,5 @@
 require 'js_processor'
 
-###########
 # Rewrites JavaScript to be OK for Facebook.  Handles,
 # * confirm("...") to new Dialog().showChoice(...).onclick= ...
 # * DOM attributes (href, location, ...) => getters/setters
@@ -169,12 +168,16 @@ class FbjsRewriter < JsProcessor
     end
   end
 
-  # For <form> tags
-  # -> __dlg.onconfirm = function() { this.form.submit(); } return false;
-  # For <a> tags
-  # -> __dlg.onconfirm = function() { document.location = this.href; } return false;
   # Takes care of:
   # * return confirm("...");
+  #
+  # == Returns
+  # For <input> tags
+  # -> var __obj = this; var __dlg = new Dialog.showChoice("The page says:", "...");
+  #    __dlg.onconfirm = function() { __obj.getForm().submit(); }; return false;
+  # For <a> tags
+  # -> var __obj = this; var __dlg = new Dialog.showChoice("The page says:", "...");
+  #    __dlg.onconfirm = function() { document.setLocation(__obj.getHref()); }; return false;
   def rewrite_Return(exp)
     if(confirm?(exp.last))
       confirm = generate_confirm(exp.last)
@@ -203,7 +206,7 @@ class FbjsRewriter < JsProcessor
   
   # If the confirm statement doesn't have just a message, then return nil.
   # Else return a Facebook confirm dialog.
-  # var __dlg = new Dialog().showMessage("...");
+  # var __dlg = new Dialog().showChoice("...");
   def generate_confirm(exp)
     if(not type?(exp.last, :Arguments) or (exp.last.length-1 != DIALOG_ARGS) )
       # $stderr.puts "WARNING: Tried to rewrite #{CONFIRM} with #{exp.last.length-1} arguments instead of #{DIALOG_ARGS}" 
@@ -215,7 +218,7 @@ class FbjsRewriter < JsProcessor
     ) )
   end
 
-  # var.event = function() { ... }
+  # var.event = function() { exp }
   def generate_event(exp, var, event)
     s(:ExpressionStatement, s(:OpEqual, s(:DotAccessor, s(:Resolve, var), event),
 		s(:FunctionExpr, FUNCTION, s() , s(:FunctionBody, exp)))
@@ -232,14 +235,14 @@ class FbjsRewriter < JsProcessor
     s(:VarStatement, s(:VarDecl, name, s(:AssignExpr, exp) )  )
   end
 
-  # For <form> tags
-  # -> __dlg.onconfirm = function() { __obj.form.submit(); } return false;
+  # For <input> tags
+  # -> __obj.getForm().submit();
   def generate_confirm_form_callback
     s(:ExpressionStatement, s(:FunctionCall, s(:DotAccessor, s(:DotAccessor, s(:Resolve, THIS_VAR), 'form'), 'submit'), s(:Arguments)))
   end
 
   # For <a> tags
-  # -> __dlg.onconfirm = function() { document.location = __obj.href; } return false;
+  # -> document.setLocation(__obj.getHref());
   def generate_confirm_link_callback
     s(:ExpressionStatement, s(:OpEqual, s(:DotAccessor, s(:Resolve, 'document'), 'location'), s(:DotAccessor, s(:Resolve, THIS_VAR)  , 'href') ))
   end
@@ -256,7 +259,6 @@ class FbjsRewriter < JsProcessor
   def confirm?(exp)
     type?(exp, :FunctionCall) && type?(exp[1], :Resolve) && exp[1].last==CONFIRM
   end
-
 
   def etter?(exp, set_or_get)
     if(set_or_get == SET)

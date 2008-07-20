@@ -1,12 +1,13 @@
 require 'sexp_processor'
 
+# Turns S-expressions into JavaScript.
 class JsProcessor < SexpProcessor
 
   def self.translate(str)
     require 'rkelly'
     jstree = RKelly::Parser.new.parse(str).to_sexp
     js = self.new.process(jstree)
-    raise SexpProcessorError, "bug, translation is the empty string" if js.empty? and !str.empty?
+    raise SexpProcessorError, "translation is the empty string" if js.empty? and !str.empty?
     js
   end
 
@@ -133,7 +134,7 @@ class JsProcessor < SexpProcessor
         @indent -= 1
         case_code
       end
-########
+     ########
 
       EXP = %w{
         Number Parameter Regexp Resolve String
@@ -262,7 +263,7 @@ class JsProcessor < SexpProcessor
         "#{exp.shift}#{process(exp.shift)}"
       end
 
-# op? proc op? exp op?
+      # op? proc op? exp op?
       def process_Postfix(exp)
         "#{process(exp.shift)}#{exp.shift}"
       end

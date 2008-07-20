@@ -13,8 +13,10 @@ module Js2Fbjs
   # page, it won't translate your js.
   def render(*args)
     no_thanks = args.delete(:without_js2fbjs)
-    super
-    if request_is_for_a_facebook_canvas? && !no_thanks
+    if !request_is_for_a_facebook_canvas? || no_thanks
+      super
+    else
+      super
       dbl_quote_matches = response.body.scan(/<([a-zA-Z]+)([^>]*#{ONS}=)(")([^">]*)(")([^>]*)>/)
       sing_quote_matches= response.body.scan(/<([a-zA-Z]+)([^>]*#{ONS}=)(')([^'>]*)(')([^>]*)>/)
       (dbl_quote_matches+sing_quote_matches).each { |match|
@@ -32,4 +34,5 @@ module Js2Fbjs
       } 
     end
   end
+
 end

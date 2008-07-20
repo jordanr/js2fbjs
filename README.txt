@@ -27,10 +27,7 @@ As a Rails plugin by:
   )
   -->  "__obj = this;
 	__dlg = new Dialog().showChoice('The page says:', 'Are you sure?');
-     	__dlg.onconfirm = function() { document.setLocation(__obj.getHref()) }
-
-== Author
-  Copyright 2008 by Richard Jordan
+     	__dlg.onconfirm = function() { document.setLocation(__obj.getHref()); };
 
 == Acknowledgments
 * Developers of the ParseTree Gem wrote the S-expression files.  Thanks!

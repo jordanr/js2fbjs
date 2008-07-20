@@ -14,7 +14,7 @@ module RKelly
 
   class GeneratedParser < Racc::Parser
 
-module_eval <<'..end lib/parser.y modeval..id64d324fac5', 'lib/parser.y', 858
+module_eval <<'..end lib/parser.y modeval..idf51e46a77f', 'lib/parser.y', 858
   include RKelly::Nodes
 
   def allow_auto_semi?(error_token)
@@ -33,7 +33,7 @@ module_eval <<'..end lib/parser.y modeval..id64d324fac5', 'lib/parser.y', 858
   def debug(*args)
     logger.debug(*args) if logger
   end
-..end lib/parser.y modeval..id64d324fac5
+..end lib/parser.y modeval..idf51e46a77f
 
 ##### racc 1.4.5 generates ###
 
