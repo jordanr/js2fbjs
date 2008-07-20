@@ -1,10 +1,14 @@
 class FbjsRewriterTest < Test::Unit::TestCase
   CONFIRM_DIALOG = "var __dlg = new Dialog().showChoice('The page says:', 'Are you sure?');"
   THIS_ASSIGN = "var __obj = this;"
-  FORM_CONFIRM = "__dlg.onconfirm = function() { __obj.getForm().submit() }"
-  LINK_CONFIRM = "__dlg.onconfirm = function() { document.setLocation(__obj.getHref()) }"
+  FORM_CONFIRM = "__dlg.onconfirm = function() { __obj.getForm().submit(); };"
+  LINK_CONFIRM = "__dlg.onconfirm = function() { document.setLocation(__obj.getHref()); };"
 
   # rewriting tests
+  def test_raises_error
+    assert_raises(SexpProcessorError) { assert_fbjs("var __obj = this;var __dlg = new Dialog().showChoice(") }
+  end
+
   FbjsRewriter::GETTERS.each do |getter|
     define_method(:"test_get_for_#{getter}") do
       assert_fbjs("this.get#{getter[0,1].upcase+getter[1,getter.length]}();", "this.#{getter};")
@@ -46,7 +50,7 @@ class FbjsRewriterTest < Test::Unit::TestCase
   end
 
   def test_confirm_return_in_form
-    assert_fbjs("#{THIS_ASSIGN}#{CONFIRM_DIALOG}#{FORM_CONFIRM}return false;", "return confirm('Are you sure?');", 'form')
+    assert_fbjs("#{THIS_ASSIGN}#{CONFIRM_DIALOG}#{FORM_CONFIRM}return false;", "return confirm('Are you sure?');", 'input')
   end
 
   def test_confirm_return_in_link
@@ -58,11 +62,11 @@ class FbjsRewriterTest < Test::Unit::TestCase
   end
 
   def test_if_confirm_without_block
-    assert_fbjs("var __obj = this;#{CONFIRM_DIALOG}__dlg.onconfirm = function() { do_something() }", "if(confirm('Are you sure?')) do_something();")
+    assert_fbjs("var __obj = this;#{CONFIRM_DIALOG}__dlg.onconfirm = function() { do_something(); };", "if(confirm('Are you sure?')) do_something();")
   end
 
   def test_if_confirm_with_block
-    assert_fbjs("var __obj = this;#{CONFIRM_DIALOG}__dlg.onconfirm = function() { do_something(); }", "if(confirm('Are you sure?')) { do_something(); }")
+    assert_fbjs("var __obj = this;#{CONFIRM_DIALOG}__dlg.onconfirm = function() { do_something(); };", "if(confirm('Are you sure?')) { do_something(); }")
   end
 
   def test_if_confirm_with_too_many_args
@@ -70,13 +74,13 @@ class FbjsRewriterTest < Test::Unit::TestCase
   end
 
   def test_if_else_confirm_without_blocks
-    assert_fbjs("var __obj = this;#{CONFIRM_DIALOG}__dlg.onconfirm = function() { do_something() }__dlg.oncancel = function() { do_something_else() }", 
+    assert_fbjs("var __obj = this;#{CONFIRM_DIALOG}__dlg.onconfirm = function() { do_something(); };__dlg.oncancel = function() { do_something_else(); };", 
 		"if(confirm('Are you sure?')) do_something(); 
 		else do_something_else();")
   end
 
   def test_if_else_confirm_with_blocks
-    assert_fbjs("var __obj = this;#{CONFIRM_DIALOG}__dlg.onconfirm = function() { do_something(); }__dlg.oncancel = function() { do_something_else(); }",
+    assert_fbjs("var __obj = this;#{CONFIRM_DIALOG}__dlg.onconfirm = function() { do_something(); };__dlg.oncancel = function() { do_something_else(); };",
 		"if(confirm('Are you sure?')) { 
 		  do_something(); 
 		}
@@ -94,7 +98,7 @@ class FbjsRewriterTest < Test::Unit::TestCase
     assert_fbjs("var __obj = this;#{CONFIRM_DIALOG}__dlg.onconfirm = function() { 
 		a = __obj.hello;
 		__obj.world = '!!';
-		do_something(); }", 
+		do_something(); };", 
 	"if(confirm('Are you sure?')) { 
 		a = this.hello;
 		this.world = '!!';
@@ -106,9 +110,9 @@ class FbjsRewriterTest < Test::Unit::TestCase
     assert_fbjs("var __obj = this;#{CONFIRM_DIALOG}__dlg.onconfirm = function() { 
 		a = __obj.hello;
 		__obj.world = '!!';
-		do_something(); }__dlg.oncancel = function() {
+		do_something(); };__dlg.oncancel = function() {
 		  b = __obj.hello;
-		}", 
+		};", 
 	"if(confirm('Are you sure?')) { 
 		a = this.hello;
 		this.world = '!!';
@@ -120,6 +124,14 @@ class FbjsRewriterTest < Test::Unit::TestCase
   end
 
   #  inherited processing tests
+  def test_anonymous_function_expr
+    assert_fbjs('a = function() { };')
+  end
+
+  def test_anonymous_function_expr_with_args
+    assert_fbjs('a = function(a, b, c) { };')
+  end
+
   def test_this_node
     assert_fbjs('this.foo;')
   end

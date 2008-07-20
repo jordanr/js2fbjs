@@ -1,21 +1,20 @@
 require 'js_processor'
 
+###########
+# Rewrites JavaScript to be OK for Facebook.  Handles,
+# * confirm("...") to new Dialog().showChoice(...).onclick= ...
+# * DOM attributes (href, location, ...) => getters/setters
+# * setAttribute => setWidth, setAction, ...
+# * style.attribute => setStyle("attribute",...) or getStyle("attribute")
 class FbjsRewriter < JsProcessor
+
+  # Takes the JavaScript and possibly what tag it's found in.
   def self.translate(str, tag=nil)
     require 'rkelly'
-    begin
-      ans = self.new(tag).process(RKelly::Parser.new.parse(str).to_sexp)
-    rescue
-      $stderr.puts "WARNING: processing error on '#{str}'"
-      ans = str
-    end
-
-    if(ans.empty?)
-      $stderr.puts "WARNING: parse error on '#{str}'"
-      str
-    else
-      ans
-    end
+    fbjstree = RKelly::Parser.new.parse(str).to_sexp
+    fbjs = self.new(tag).process(fbjstree)
+    raise SexpProcessorError, "translation is the empty string" if fbjs.empty? and !str.empty?
+    fbjs
   end
 
   def initialize(tag)
@@ -30,12 +29,10 @@ class FbjsRewriter < JsProcessor
 
   ############################################################
   # Processors  
-
   # See js_processor
 
   ############################################################
-  # Rewriters:
-
+  # Tokens:
     # Getters and Setters
     ONLY_GETTERS = %w{
         parentNode nextSibling previousSibling firstChild lastChild childNodes
@@ -56,7 +53,7 @@ class FbjsRewriter < JsProcessor
     GET = 'get'
     # setAttribute => setName, setValue, ...
     SET_ATTR = 'setAttribute'
-    SET_ATTR_ARGS = 3
+    SET_ATTR_ARGS = 2
 
     # style => getStyle('width'), setStyle('width', '10px'), ...
     STYLE = 'style'
@@ -72,7 +69,7 @@ class FbjsRewriter < JsProcessor
     # Dialogs
     DIALOG = 'Dialog'
     DIALOG_TITLE = 'The page says:'
-    DIALOG_ARGS = 2
+    DIALOG_ARGS = 1
     CONFIRM = 'confirm'
     CONFIRM_ACCESSOR = 'showChoice'
     ALERT = 'alert' 
@@ -81,20 +78,16 @@ class FbjsRewriter < JsProcessor
     DIALOG_VAR = '__dlg'   
     ONCONFIRM = 'onconfirm' 
     ONCANCEL = 'oncancel'
-    # For <form> tags
-    # -> __dlg.onconfirm = function() { __obj.form.submit(); } return false;
-    CONFIRM_FORM_CALLBACK = s(:FunctionCall, s(:DotAccessor, s(:DotAccessor, s(:Resolve, THIS_VAR), 'form'), 'submit'), s(:Arguments))
-    # For <a> tags
-    # -> __dlg.onconfirm = function() { document.location = __obj.href; } return false;
-    CONFIRM_LINK_CALLBACK = s(:OpEqual, s(:DotAccessor, s(:Resolve, 'document'), 'location'), 
-					s(:DotAccessor, s(:Resolve, THIS_VAR)  , 'href') )
-    FORM = 'form'
+    FORM = 'input'
     LINK = 'a'
     FUNCTION = 'function'
     # Undefined 
     # getAbsoluteTop 	Returns the elements absolute position relative to the top of the page. Useful because of lack of offsetParent support.
     # getAbsoluteLeft 	Same as getAbsoluteTop, but horizontally. 
     # getRootElement 	used as document.getRootElement - returns the top-level element of your profile box or canvas page
+
+  ############################################################
+  # Rewriters:
 
   # Takes care of:
   # * banned getters
@@ -126,8 +119,8 @@ class FbjsRewriter < JsProcessor
   def rewrite_FunctionCall(exp)
     if(set_attribute?(exp))
 	dot = exp[1]
-	if not type?(exp.last, :Arguments) or (exp.last.length != SET_ATTR_ARGS)
-	  $stderr.puts "WARNING: Tried to rewrite #{SET_ATTR} with #{exp.last.length} length instead of #{SET_ATTR_ARGS}" 
+	if not type?(exp.last, :Arguments) or (exp.last.length-1 != SET_ATTR_ARGS)
+#	  $stderr.puts "WARNING: Tried to rewrite #{SET_ATTR} with #{exp.last.length-1} arguments instead of #{SET_ATTR_ARGS}" 
           exp
 	else	  
 	  attribute = exp.last[1].last 
@@ -145,11 +138,13 @@ class FbjsRewriter < JsProcessor
   def rewrite_If(exp)
     if(confirm?(exp[1]))
       confirm = generate_confirm(exp[1])
-      return exp if confirm.nil? # return if nil
-      ifff = generate_event(exp[2].last.gsub(s(:This,'this'), s(:Resolve,THIS_VAR)), DIALOG_VAR, ONCONFIRM)
-      result = s(:dummy, generate_var_assign(THIS_VAR, s(:This, 'this')), confirm, ifff)
+      return exp if confirm.nil? # return if nil, emit a bad confirm warning
+      if_body = type?(exp[2], :Block) ? exp[2].last : exp[2] # get_rid_of_extra_block(
+      if_event = generate_event(if_body.gsub(s(:This,'this'), s(:Resolve,THIS_VAR)), DIALOG_VAR, ONCONFIRM)
+      result = s(:dummy, generate_var_assign(THIS_VAR, s(:This, 'this')), confirm, if_event)
       if(exp[3])
-        result.push( generate_event(exp[3].last.gsub(s(:This,'this'), s(:Resolve,THIS_VAR)), DIALOG_VAR, ONCANCEL))
+        else_body = type?(exp[3], :Block) ? exp[3].last : exp[3] # get_rid_of_extra_block
+        result.push( generate_event(else_body.gsub(s(:This,'this'), s(:Resolve,THIS_VAR)), DIALOG_VAR, ONCANCEL))
       else
         result
       end
@@ -188,11 +183,11 @@ class FbjsRewriter < JsProcessor
       if(@tag==FORM) 
 	result.push(generate_var_assign(THIS_VAR, s(:This, 'this')) )
 	result.push(confirm)
-	result.push(generate_event(CONFIRM_FORM_CALLBACK, DIALOG_VAR, ONCONFIRM))
+	result.push(generate_event(generate_confirm_form_callback(), DIALOG_VAR, ONCONFIRM))
       elsif(@tag==LINK) 
 	result.push(generate_var_assign(THIS_VAR, s(:This, 'this')) )
 	result.push(confirm)
-	result.push(generate_event(CONFIRM_LINK_CALLBACK, DIALOG_VAR, ONCONFIRM))
+	result.push(generate_event(generate_confirm_link_callback(), DIALOG_VAR, ONCONFIRM))
       else
 	result.push(confirm)
       end
@@ -210,8 +205,8 @@ class FbjsRewriter < JsProcessor
   # Else return a Facebook confirm dialog.
   # var __dlg = new Dialog().showMessage("...");
   def generate_confirm(exp)
-    if(not type?(exp.last, :Arguments) or (exp.last.length != DIALOG_ARGS) )
-      $stderr.puts "WARNING: Tried to rewrite #{CONFIRM} with #{exp.last.length} length instead of #{DIALOG_ARGS}" 
+    if(not type?(exp.last, :Arguments) or (exp.last.length-1 != DIALOG_ARGS) )
+      # $stderr.puts "WARNING: Tried to rewrite #{CONFIRM} with #{exp.last.length-1} arguments instead of #{DIALOG_ARGS}" 
       return nil
     end
     generate_var_assign(DIALOG_VAR,  s(:FunctionCall, 
@@ -222,8 +217,8 @@ class FbjsRewriter < JsProcessor
 
   # var.event = function() { ... }
   def generate_event(exp, var, event)
-    s(:OpEqual, s(:DotAccessor, s(:Resolve, var), event),
-		s(:FunctionExpr, FUNCTION, s() , s(:FunctionBody, exp))
+    s(:ExpressionStatement, s(:OpEqual, s(:DotAccessor, s(:Resolve, var), event),
+		s(:FunctionExpr, FUNCTION, s() , s(:FunctionBody, exp)))
     )
   end
 
@@ -235,6 +230,18 @@ class FbjsRewriter < JsProcessor
   # var name = ...;
   def generate_var_assign(name, exp)
     s(:VarStatement, s(:VarDecl, name, s(:AssignExpr, exp) )  )
+  end
+
+  # For <form> tags
+  # -> __dlg.onconfirm = function() { __obj.form.submit(); } return false;
+  def generate_confirm_form_callback
+    s(:ExpressionStatement, s(:FunctionCall, s(:DotAccessor, s(:DotAccessor, s(:Resolve, THIS_VAR), 'form'), 'submit'), s(:Arguments)))
+  end
+
+  # For <a> tags
+  # -> __dlg.onconfirm = function() { document.location = __obj.href; } return false;
+  def generate_confirm_link_callback
+    s(:ExpressionStatement, s(:OpEqual, s(:DotAccessor, s(:Resolve, 'document'), 'location'), s(:DotAccessor, s(:Resolve, THIS_VAR)  , 'href') ))
   end
   ############################################################
   # Utility Methods: 
@@ -257,7 +264,7 @@ class FbjsRewriter < JsProcessor
     elsif(set_or_get == GET)
       type?(exp, :DotAccessor) && GETTERS.include?(exp.last)
     else
-      raise StandardError
+      raise StandardError, "set_or_get must be \"set\" or \"get\", not #{set_or_get}"
     end
   end
 
