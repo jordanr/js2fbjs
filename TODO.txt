@@ -1,0 +1,6 @@
+July 25, 2008
+* translate <style> ... </style>
+* allow whitespace
+* better error messages
+* strict parsing
+* more rewriter cases
