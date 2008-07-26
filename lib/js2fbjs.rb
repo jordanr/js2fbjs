@@ -22,6 +22,7 @@ module Js2Fbjs
     end
   end
 
+  # really needs some refactoring
   def translate_fbml(fbml)
       errors = []
       dbl_quote_matches = fbml.scan(/<([a-zA-Z]+)([^>]*#{ONS}\s*=\s*)(")([^">]*)(")([^>]*)>/)
@@ -39,6 +40,21 @@ module Js2Fbjs
 	repl = "<"+match[0]+match[1]+"\""+js.gsub(/"/,"\'")+"\""+match[5]+">"
         fbml.gsub!(pattern, repl)
       } 
+
+      style_tag_matches= fbml.scan(/<style>([^<]*)<\/style>/)
+      (style_tag_matches).each { |match|
+ 	next if(match.first.nil?) # hmm, break probably too, meaning no javascript on page
+  	begin 
+	  js = FbjsRewriter.translate(match[0]) # all js
+	rescue
+	  errors.push("warning: translation failed for \"#{match[0]}\" #{$!}")
+	  next;
+	end
+	pattern = Regexp.new(Regexp.escape("<style>#{match[0]}</style>"))
+	repl = "<style>#{js}</style>"
+        fbml.gsub!(pattern, repl)
+      } 
+
       return fbml, errors
   end
 end
