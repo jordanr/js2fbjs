@@ -23,8 +23,7 @@ As a Rails plugin by:
 
 == Example
   class SampleController < ApplicationController
-    # after filter
-    translate_js_to_fbjs
+    after filter :translate_js_to_fbjs
     
     def index
       render :text=>"<script>if(confirm('Are you sure')) document.location = this.href;</script>"

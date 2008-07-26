@@ -16,7 +16,7 @@ class RailsUrlHelperTest < Test::Unit::TestCase
     include ActionView::Helpers::TagHelper
     include Js2Fbjs
   
-    translate_js_to_fbjs
+    after_filter :translate_js_to_fbjs
 
     def link_to_without
       render :text => self.link_to(LABEL, URL)

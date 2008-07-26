@@ -3,17 +3,10 @@ require 'rkelly'
 
 # To hook up to Facebooker, init.rb sends this module 
 # as an include into the Facebooker::Rails::Controller.
-# It calls the regular render and then afterwards,
-# tries to translate JavaScript inside fbml tags.
 module Js2Fbjs
-  def self.included(controller)
-    controller.extend(ClassMethods)
-#    controller.after_filter :translate_js_into_fbjs
-  end
-
-  private
   ONS = Regexp.new("onclick|onsubmit") # add more
 
+  # use as-> after_filter :translate_js_to_fbjs, options
   def translate_js_to_fbjs
       if request_is_for_a_facebook_canvas?
         response.body, errors = translate_fbml(response.body)
@@ -21,6 +14,7 @@ module Js2Fbjs
       end
   end
 
+  private
   # really needs some refactoring
   def translate_fbml(fbml)
       errors = []
@@ -55,15 +49,5 @@ module Js2Fbjs
       } 
 
       return fbml, errors
-  end
-  
-  module ClassMethods
-    #
-    # Creates a filter which translate the response body from javascript to facebook js
-    # Accepts the same optional options hash which
-    # before_filter and after_filter accept.
-    def translate_js_to_fbjs(options = {})
-      after_filter :translate_js_to_fbjs, options
-    end
   end
 end
