@@ -44,6 +44,10 @@ class RailsUrlHelperTest < Test::Unit::TestCase
       render :text => "<a href=\"#{URL}\" onclick=\'return confirm(\"#{CONTENT}\");\'>#{LABEL}</a>"
     end
 
+    def whitespace_before_quoted_javascript
+      render :text => "<a href=\"#{URL}\" onclick = \"return confirm(\'#{CONTENT}\');\">#{LABEL}</a>"
+    end
+
     private
     def rescue_action(e) raise e end 
 
@@ -149,6 +153,13 @@ class RailsUrlHelperTest < Test::Unit::TestCase
   def test_single_quoted_javascript_for_canvas
     get :single_quoted_javascript, {"fb_sig_in_canvas"=>"1"}
     assert_equal( "<a href=\"#{URL}\" onclick=\"var __obj = this;var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
+                 "__dlg.onconfirm = function() { " +
+                 "document.setLocation(__obj.getHref()); };return false;\">#{LABEL}</a>", @response.body)
+  end
+
+  def test_whitespace_before_quoted_javascript_for_canvas
+    get :whitespace_before_quoted_javascript, {"fb_sig_in_canvas"=>"1"}
+    assert_equal( "<a href=\"#{URL}\" onclick = \"var __obj = this;var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
                  "__dlg.onconfirm = function() { " +
                  "document.setLocation(__obj.getHref()); };return false;\">#{LABEL}</a>", @response.body)
   end

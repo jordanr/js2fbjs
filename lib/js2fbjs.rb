@@ -24,8 +24,8 @@ module Js2Fbjs
 
   def translate_fbml(fbml)
       errors = []
-      dbl_quote_matches = fbml.scan(/<([a-zA-Z]+)([^>]*#{ONS}=)(")([^">]*)(")([^>]*)>/)
-      sing_quote_matches= fbml.scan(/<([a-zA-Z]+)([^>]*#{ONS}=)(')([^'>]*)(')([^>]*)>/)
+      dbl_quote_matches = fbml.scan(/<([a-zA-Z]+)([^>]*#{ONS}\s*=\s*)(")([^">]*)(")([^>]*)>/)
+      sing_quote_matches= fbml.scan(/<([a-zA-Z]+)([^>]*#{ONS}\s*=\s*)(')([^'>]*)(')([^>]*)>/)
       (dbl_quote_matches+sing_quote_matches).each { |match|
  	next if(match.first.nil?) # hmm, break probably too, meaning no javascript on page
   	begin 
