@@ -15,6 +15,8 @@ class RailsUrlHelperTest < Test::Unit::TestCase
     include ActionView::Helpers::UrlHelper
     include ActionView::Helpers::TagHelper
     include Js2Fbjs
+  
+    translate_js_to_fbjs
 
     def link_to_without
       render :text => self.link_to(LABEL, URL)
@@ -48,8 +50,8 @@ class RailsUrlHelperTest < Test::Unit::TestCase
       render :text => "<a href=\"#{URL}\" onclick = \"return confirm(\'#{CONTENT}\');\">#{LABEL}</a>"
     end
 
-    def style_tagged_javascript
-      render :text => "<style>confirm(\'#{CONTENT}\');</style>"
+    def script_tagged_javascript
+      render :text => "<script>confirm(\'#{CONTENT}\');</script>"
     end
 
     private
@@ -168,11 +170,11 @@ class RailsUrlHelperTest < Test::Unit::TestCase
                  "document.setLocation(__obj.getHref()); };return false;\">#{LABEL}</a>", @response.body)
   end
 
-  def test_style_tagged_javascript_for_canvas
-    get :style_tagged_javascript, {"fb_sig_in_canvas"=>"1"}
-    assert_equal( "<style>"+
+  def test_script_tagged_javascript_for_canvas
+    get :script_tagged_javascript, {"fb_sig_in_canvas"=>"1"}
+    assert_equal( "<script>"+
 		  "var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
-		  "</style>", @response.body)
+		  "</script>", @response.body)
   end
 
   private

@@ -6,20 +6,19 @@ require 'rkelly'
 # It calls the regular render and then afterwards,
 # tries to translate JavaScript inside fbml tags.
 module Js2Fbjs
+  def self.included(controller)
+    controller.extend(ClassMethods)
+#    controller.after_filter :translate_js_into_fbjs
+  end
+
+  private
   ONS = Regexp.new("onclick|onsubmit") # add more
 
-  # Translates js event calls into fbjs
-  # If you pass in :without_js2fbjs or are on a non-canvas
-  # page, it won't translate your js.
-  def render(*args)
-    no_thanks = args.delete(:without_js2fbjs)
-    if !request_is_for_a_facebook_canvas? || no_thanks
-      super
-    else
-      super
-      response.body, errors = translate_fbml(response.body)
-      errors.each { |err| $stderr.puts err }
-    end
+  def translate_js_to_fbjs
+      if request_is_for_a_facebook_canvas?
+        response.body, errors = translate_fbml(response.body)
+        errors.each { |err| logger.warning "#{err}" }
+      end
   end
 
   # really needs some refactoring
@@ -32,7 +31,7 @@ module Js2Fbjs
   	begin 
 	  js = FbjsRewriter.translate(match[3], match[0]) # js, tag
 	rescue
-	  errors.push("warning: translation failed for \"#{match[3]}\" inside \"#{match[0]}\" tag, #{$!}")
+	  errors.push("translation failed for \"#{match[3]}\" inside \"#{match[0]}\" tag, #{$!}")
 	  next;
 	end
 	pattern = Regexp.new(Regexp.escape("<"+match.join+">"))
@@ -41,20 +40,30 @@ module Js2Fbjs
         fbml.gsub!(pattern, repl)
       } 
 
-      style_tag_matches= fbml.scan(/<style>([^<]*)<\/style>/)
-      (style_tag_matches).each { |match|
+      script_tag_matches= fbml.scan(/<script>([^<]*)<\/script>/)
+      (script_tag_matches).each { |match|
  	next if(match.first.nil?) # hmm, break probably too, meaning no javascript on page
   	begin 
 	  js = FbjsRewriter.translate(match[0]) # all js
 	rescue
-	  errors.push("warning: translation failed for \"#{match[0]}\" #{$!}")
+	  errors.push("translation failed for \"#{match[0]}\" #{$!}")
 	  next;
 	end
-	pattern = Regexp.new(Regexp.escape("<style>#{match[0]}</style>"))
-	repl = "<style>#{js}</style>"
+	pattern = Regexp.new(Regexp.escape("<script>#{match[0]}</script>"))
+	repl = "<script>#{js}</script>"
         fbml.gsub!(pattern, repl)
       } 
 
       return fbml, errors
+  end
+  
+  module ClassMethods
+    #
+    # Creates a filter which translate the response body from javascript to facebook js
+    # Accepts the same optional options hash which
+    # before_filter and after_filter accept.
+    def translate_js_to_fbjs(options = {})
+      after_filter :translate_js_to_fbjs, options
+    end
   end
 end

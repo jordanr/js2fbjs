@@ -22,14 +22,14 @@ As a Rails plugin by:
   script/plugin install git://github.com/jordanr/js2fbjs.git
 
 == Example
-  require 'js2fbjs'
-
-  puts FbjsRewriter.translate(
-    "if(confirm('Are you sure')) document.location = this.href;"
-  )
-  -->  "__obj = this;
-	__dlg = new Dialog().showChoice('The page says:', 'Are you sure?');
-     	__dlg.onconfirm = function() { document.setLocation(__obj.getHref()); };
+  class SampleController < ApplicationController
+    # after filter
+    translate_js_to_fbjs
+    
+    def index
+      render :text=>"<script>if(confirm('Are you sure')) document.location = this.href;</script>"
+    end
+  end
 
 == Acknowledgments
 * Developers of the ParseTree Gem wrote the S-expression files.  Thanks!
