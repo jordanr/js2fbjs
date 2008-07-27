@@ -85,12 +85,12 @@ rule
   | NUMBER ':' AssignmentExpr { result = PropertyNode.new(val.first, val.last) }
   | IDENT IDENT '(' ')' '{' FunctionBody '}'  {
       klass = property_class_for(val.first)
-      yyabort unless klass
+      yyerror unless klass
       result = klass.new(val[1], FunctionExprNode.new(nil, val[5]))
     }
   | IDENT IDENT '(' FormalParameterList ')' '{' FunctionBody '}' {
       klass = property_class_for(val.first)
-      yyabort unless klass
+      yyerror unless klass
       result = klass.new(val[1], FunctionExprNode.new(nil, val[6], val[3]))
     }
   ;
@@ -518,7 +518,7 @@ rule
   | VAR VariableDeclarationList error {
       result = VarStatementNode.new(val[1])
       debug(result)
-      yyabort unless allow_auto_semi?(val.last)
+      yyerror unless allow_auto_semi?(val.last)
     }
   ;
 
@@ -590,7 +590,7 @@ rule
   | ExprNoBF error {
       result = ExpressionStatementNode.new(val.first)
       debug(result)
-      yyabort unless allow_auto_semi?(val.last)
+      yyerror unless allow_auto_semi?(val.last)
     }
   ;
 
@@ -628,7 +628,6 @@ rule
       debug(result)
     }
   | FOR '(' LeftHandSideExpr IN Expr ')' Statement {
-      #yyabort if (!n.isLocation())
       result = ForInNode.new(val[2], val[4], val[6])
       debug(result);
     }
@@ -663,7 +662,7 @@ rule
   | CONTINUE error {
       result = ContinueNode.new(nil)
       debug(result)
-      yyabort unless allow_auto_semi?(val[1])
+      yyerror unless allow_auto_semi?(val[1])
     }
   | CONTINUE IDENT ';' {
       result = ContinueNode.new(val[1])
@@ -672,7 +671,7 @@ rule
   | CONTINUE IDENT error {
       result = ContinueNode.new(val[1])
       debug(result)
-      yyabort unless allow_auto_semi?(val[2])
+      yyerror unless allow_auto_semi?(val[2])
     }
   ;
 
@@ -684,7 +683,7 @@ rule
   | BREAK error {
       result = BreakNode.new(nil)
       debug(result)
-      yyabort unless allow_auto_semi?(val[1])
+      yyerror unless allow_auto_semi?(val[1])
     }
   | BREAK IDENT ';' {
       result = BreakNode.new(val[1])
@@ -693,7 +692,7 @@ rule
   | BREAK IDENT error {
       result = BreakNode.new(val[1])
       debug(result)
-      yyabort unless allow_auto_semi?(val[2])
+      yyerror unless allow_auto_semi?(val[2])
     }
   ;
 
@@ -705,7 +704,7 @@ rule
   | RETURN error {
       result = ReturnNode.new(nil)
       debug(result)
-      yyabort unless allow_auto_semi?(val[1])
+      yyerror unless allow_auto_semi?(val[1])
     }
   | RETURN Expr ';' {
       result = ReturnNode.new(val[1])
@@ -714,7 +713,7 @@ rule
   | RETURN Expr error {
       result = ReturnNode.new(val[1])
       debug(result)
-      yyabort unless allow_auto_semi?(val[2])
+      yyerror unless allow_auto_semi?(val[2])
     }
   ;
 
@@ -777,7 +776,7 @@ rule
   | THROW Expr error {
       result = ThrowNode.new(val[1])
       debug(result)
-      yyabort unless allow_auto_semi?(val[2])
+      yyerror unless allow_auto_semi?(val[2])
     }
   ;
 
@@ -804,7 +803,7 @@ rule
   | DEBUGGER error {
       result = EmptyStatementNode.new(val[0])
       debug(result)
-      yyabort unless allow_auto_semi?(val[1])
+      yyerror unless allow_auto_semi?(val[1])
     }
   ;
 
@@ -867,6 +866,8 @@ end
       GetterPropertyNode
     when 'set'
       SetterPropertyNode
+    else
+      raise ParseError, "expected keyword 'get' or 'set' but saw #{ident}"
     end
   end
 

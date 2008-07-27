@@ -1,6 +1,5 @@
 July 25, 2008
-* translate <style> ... </style>	[x]
+* translate <script> ... </script>	[x]
 * allow whitespace  			[x]
 * better error messages			[ ]
 * strict parsing option			[ ]
-* more rewriter cases (vague)		[ ]

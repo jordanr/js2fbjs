@@ -23,10 +23,10 @@ As a Rails plugin by:
 
 == Example
   class SampleController < ApplicationController
-    after filter :translate_js_to_fbjs
+    after_filter :translate_js_to_fbjs
     
     def index
-      render :text=>"<script>if(confirm('Are you sure')) document.location = this.href;</script>"
+      render :text=>"<script>confirm('Are you sure')</script>"
     end
   end
 
