@@ -7,15 +7,13 @@
 require 'racc/parser'
 
 
-  require "rkelly/nodes"
-
+  require "sexp"
 
 module RKelly
 
   class GeneratedParser < Racc::Parser
 
-module_eval <<'..end lib/parser.y modeval..idb2a878edf8', 'lib/parser.y', 857
-  include RKelly::Nodes
+module_eval <<'..end lib/parser.y modeval..idf3b206da5e', 'lib/parser.y', 848
 
   def allow_auto_semi?(error_token)
     error_token == false || error_token == '}' || @terminator
@@ -24,18 +22,42 @@ module_eval <<'..end lib/parser.y modeval..idb2a878edf8', 'lib/parser.y', 857
   def property_class_for(ident)
     case ident
     when 'get'
-      GetterPropertyNode
+      :GetterProperty
     when 'set'
-      SetterPropertyNode
+      :SetterProperty
     else
-      raise ParseError, "expected keyword 'get' or 'set' but saw #{ident}"
+      nil
     end
   end
 
   def debug(*args)
     logger.debug(*args) if logger
   end
-..end lib/parser.y modeval..idb2a878edf8
+
+  def flatten_unless_sexp(ary)
+    return ary unless ary.is_a?(Array) && !ary.is_a?(Sexp)
+    flattened = []
+    ary.each { |ar| 
+ 	sub = flatten_unless_sexp(ar)
+	if(sub.is_a?(Array) && !sub.is_a?(Sexp) )
+	  flattened += sub
+	else
+	  flattened.push(sub)
+	end
+    }    
+    flattened
+  end
+
+  def combine(sym, array_or_sexp)
+    if(!array_or_sexp.is_a?(Array))
+	raise ParseError, "tried to make an s-expression with a non array"
+    elsif(array_or_sexp.is_a?(Sexp))
+	s(sym, array_or_sexp)
+    else
+        Sexp.from_array([sym]+array_or_sexp)
+    end
+  end
+..end lib/parser.y modeval..idf3b206da5e
 
 ##### racc 1.4.5 generates ###
 
@@ -1525,9 +1547,9 @@ Racc_debug_parser = false
 
  # reduce 1 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 43
+module_eval <<'.,.,', 'lib/parser.y', 44
   def _reduce_2( val, _values, result )
- result = val.flatten
+ result = flatten_unless_sexp(val)
    result
   end
 .,.,
@@ -1570,63 +1592,63 @@ module_eval <<'.,.,', 'lib/parser.y', 43
 
 module_eval <<'.,.,', 'lib/parser.y', 71
   def _reduce_21( val, _values, result )
- result = NullNode.new(val.first)
+ result = s(:Null, val.first)
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 72
   def _reduce_22( val, _values, result )
- result = TrueNode.new(val.first)
+ result = s(:True, val.first)
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 73
   def _reduce_23( val, _values, result )
- result = FalseNode.new(val.first)
+ result = s(:False, val.first)
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 74
   def _reduce_24( val, _values, result )
- result = NumberNode.new(val.first)
+ result = s(:Number, val.first)
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 75
   def _reduce_25( val, _values, result )
- result = StringNode.new(val.first)
+ result = s(:String, val.first)
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 76
   def _reduce_26( val, _values, result )
- result = RegexpNode.new(val.first)
+ result = s(:Regexp, val.first)
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 83
   def _reduce_27( val, _values, result )
-      result = PropertyNode.new(val[0], val[2])
+      result = s(:Property, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 83
   def _reduce_28( val, _values, result )
- result = PropertyNode.new(val.first, val.last)
+ result = s(:Property, val.first, val.last)
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 84
   def _reduce_29( val, _values, result )
- result = PropertyNode.new(val.first, val.last)
+ result = s(:Property, val.first, val.last)
    result
   end
 .,.,
@@ -1634,8 +1656,8 @@ module_eval <<'.,.,', 'lib/parser.y', 84
 module_eval <<'.,.,', 'lib/parser.y', 90
   def _reduce_30( val, _values, result )
       klass = property_class_for(val.first)
-      yyerror unless klass
-      result = klass.new(val[1], FunctionExprNode.new(nil, val[5]))
+      raise ParseError, "expected keyword 'get' or 'set' but saw #{val.first}" unless klass
+      result = s(klass, val[1], s(:FunctionExpr, nil, [], val[5]))
    result
   end
 .,.,
@@ -1643,8 +1665,8 @@ module_eval <<'.,.,', 'lib/parser.y', 90
 module_eval <<'.,.,', 'lib/parser.y', 95
   def _reduce_31( val, _values, result )
       klass = property_class_for(val.first)
-      yyerror unless klass
-      result = klass.new(val[1], FunctionExprNode.new(nil, val[6], val[3]))
+      raise ParseError, "expected keyword 'get' or 'set' but saw #{val.first}" unless klass
+      result = s(klass, val[1], s(:FunctionExpr, nil, val[3], val[6]))
    result
   end
 .,.,
@@ -1658,7 +1680,7 @@ module_eval <<'.,.,', 'lib/parser.y', 98
 
 module_eval <<'.,.,', 'lib/parser.y', 99
   def _reduce_33( val, _values, result )
- result = [val.first, val.last].flatten
+ result = flatten_unless_sexp([val.first, val.last])
    result
   end
 .,.,
@@ -1667,28 +1689,28 @@ module_eval <<'.,.,', 'lib/parser.y', 99
 
 module_eval <<'.,.,', 'lib/parser.y', 104
   def _reduce_35( val, _values, result )
- result = ObjectLiteralNode.new([])
+ result = s(:ObjectLiteral, nil)
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 105
   def _reduce_36( val, _values, result )
- result = ObjectLiteralNode.new(val[1])
+ result = combine(:ObjectLiteral, val[1])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 106
   def _reduce_37( val, _values, result )
- result = ObjectLiteralNode.new(val[1])
+ result = combine(:ObjectLiteral, val[1])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 110
   def _reduce_38( val, _values, result )
- result = ThisNode.new(val.first)
+ result = s(:This, val.first)
    result
   end
 .,.,
@@ -1699,7 +1721,7 @@ module_eval <<'.,.,', 'lib/parser.y', 110
 
 module_eval <<'.,.,', 'lib/parser.y', 113
   def _reduce_41( val, _values, result )
- result = ResolveNode.new(val.first)
+ result = s(:Resolve, val.first)
    result
   end
 .,.,
@@ -1713,40 +1735,40 @@ module_eval <<'.,.,', 'lib/parser.y', 114
 
 module_eval <<'.,.,', 'lib/parser.y', 118
   def _reduce_43( val, _values, result )
- result = ArrayNode.new([] + [nil] * val[1])
+ result = combine(:Array, [nil] * val[1])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 119
   def _reduce_44( val, _values, result )
- result = ArrayNode.new(val[1])
+ result = combine(:Array, val[1])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 123
+module_eval <<'.,.,', 'lib/parser.y', 120
   def _reduce_45( val, _values, result )
-      result = ArrayNode.new(val[1] + [nil] * val[3])
+ result = combine(:Array, val[1] + [nil] * val[3])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 129
+module_eval <<'.,.,', 'lib/parser.y', 127
   def _reduce_46( val, _values, result )
-      result = [nil] * val[0] + [ElementNode.new(val[1])]
+      result = [nil] * val[0] + [s(:Element, val[1])]
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 132
+module_eval <<'.,.,', 'lib/parser.y', 130
   def _reduce_47( val, _values, result )
-      result = [val[0], [nil] * val[2], ElementNode.new(val[3])].flatten
+      result = flatten_unless_sexp([val[0], [nil] * val[2], s(:Element, val[3])])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 135
+module_eval <<'.,.,', 'lib/parser.y', 133
   def _reduce_48( val, _values, result )
  result = 0
    result
@@ -1755,14 +1777,14 @@ module_eval <<'.,.,', 'lib/parser.y', 135
 
  # reduce 49 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 140
+module_eval <<'.,.,', 'lib/parser.y', 138
   def _reduce_50( val, _values, result )
  result = 1
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 141
+module_eval <<'.,.,', 'lib/parser.y', 139
   def _reduce_51( val, _values, result )
  result = val.first + 1
    result
@@ -1773,148 +1795,148 @@ module_eval <<'.,.,', 'lib/parser.y', 141
 
  # reduce 53 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 147
+module_eval <<'.,.,', 'lib/parser.y', 145
   def _reduce_54( val, _values, result )
- result = BracketAccessorNode.new(val[0], val[2])
+ result = s(:BracketAccessor, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 148
+module_eval <<'.,.,', 'lib/parser.y', 146
   def _reduce_55( val, _values, result )
- result = DotAccessorNode.new(val[0], val[2])
+ result = s(:DotAccessor, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 149
+module_eval <<'.,.,', 'lib/parser.y', 147
   def _reduce_56( val, _values, result )
- result = NewExprNode.new(val[1], val[2])
+ result = s(:NewExpr, val[1], val[2])
    result
   end
 .,.,
 
  # reduce 57 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 157
+module_eval <<'.,.,', 'lib/parser.y', 155
   def _reduce_58( val, _values, result )
-      result = BracketAccessorNode.new(val[0], val[2])
+      result = s(:BracketAccessor, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 157
+module_eval <<'.,.,', 'lib/parser.y', 155
   def _reduce_59( val, _values, result )
- result = DotAccessorNode.new(val[0], val[2])
+ result = s(:DotAccessor, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 158
+module_eval <<'.,.,', 'lib/parser.y', 156
   def _reduce_60( val, _values, result )
- result = NewExprNode.new(val[1], val[2])
+ result = s(:NewExpr, val[1], val[2])
    result
   end
 .,.,
 
  # reduce 61 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 163
+module_eval <<'.,.,', 'lib/parser.y', 161
   def _reduce_62( val, _values, result )
- result = NewExprNode.new(val[1], ArgumentsNode.new([]))
+ result = s(:NewExpr, val[1], s(:Arguments, nil))
    result
   end
 .,.,
 
  # reduce 63 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 168
+module_eval <<'.,.,', 'lib/parser.y', 166
   def _reduce_64( val, _values, result )
- result = NewExprNode.new(val[1], ArgumentsNode.new([]))
+ result = s(:NewExpr, val[1], s(:Arguments, nil))
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 170
+  def _reduce_65( val, _values, result )
+ result = s(:FunctionCall, val[0], val[1])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 171
+  def _reduce_66( val, _values, result )
+ result = s(:FunctionCall, val[0], val[1])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 172
-  def _reduce_65( val, _values, result )
- result = FunctionCallNode.new(val[0], val[1])
+  def _reduce_67( val, _values, result )
+ result = s(:BracketAccessor, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 173
-  def _reduce_66( val, _values, result )
- result = FunctionCallNode.new(val[0], val[1])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 174
-  def _reduce_67( val, _values, result )
- result = BracketAccessorNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 175
   def _reduce_68( val, _values, result )
- result = DotAccessorNode.new(val[0], val[2])
+ result = s(:DotAccessor, val[0], val[2])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 177
+  def _reduce_69( val, _values, result )
+ result = s(:FunctionCall, val[0], val[1])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 178
+  def _reduce_70( val, _values, result )
+ result = s(:FunctionCall, val[0], val[1])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 179
-  def _reduce_69( val, _values, result )
- result = FunctionCallNode.new(val[0], val[1])
+  def _reduce_71( val, _values, result )
+ result = s(:BracketAccessor, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 180
-  def _reduce_70( val, _values, result )
- result = FunctionCallNode.new(val[0], val[1])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 181
-  def _reduce_71( val, _values, result )
- result = BracketAccessorNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 182
   def _reduce_72( val, _values, result )
- result = DotAccessorNode.new(val[0], val[2])
+ result = s(:DotAccessor, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 186
+module_eval <<'.,.,', 'lib/parser.y', 184
   def _reduce_73( val, _values, result )
- result = ArgumentsNode.new([])
+ result = s(:Arguments, nil)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 187
+module_eval <<'.,.,', 'lib/parser.y', 185
   def _reduce_74( val, _values, result )
- result = ArgumentsNode.new(val[1]);
+ result = combine(:Arguments, val[1])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 191
+module_eval <<'.,.,', 'lib/parser.y', 189
   def _reduce_75( val, _values, result )
  result = val
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 192
+module_eval <<'.,.,', 'lib/parser.y', 190
   def _reduce_76( val, _values, result )
- result = [val[0], val[2]].flatten
+ result = flatten_unless_sexp([val.first, val.last])
    result
   end
 .,.,
@@ -1929,95 +1951,95 @@ module_eval <<'.,.,', 'lib/parser.y', 192
 
  # reduce 81 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 207
+module_eval <<'.,.,', 'lib/parser.y', 205
   def _reduce_82( val, _values, result )
- result = PostfixNode.new(val[0], '++')
+ result = s(:Postfix, val[0], '++')
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 208
+module_eval <<'.,.,', 'lib/parser.y', 206
   def _reduce_83( val, _values, result )
- result = PostfixNode.new(val[0], '--')
+ result = s(:Postfix, val[0], '--')
    result
   end
 .,.,
 
  # reduce 84 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 213
+module_eval <<'.,.,', 'lib/parser.y', 211
   def _reduce_85( val, _values, result )
- result = PostfixNode.new(val[0], '++')
+ result = s(:Postfix, val[0], '++')
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 214
+module_eval <<'.,.,', 'lib/parser.y', 212
   def _reduce_86( val, _values, result )
- result = PostfixNode.new(val[0], '--')
+ result = s(:Postfix, val[0], '--')
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 216
+  def _reduce_87( val, _values, result )
+ result = s(:Delete, val[1])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 217
+  def _reduce_88( val, _values, result )
+ result = s(:Void, val[1])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 218
-  def _reduce_87( val, _values, result )
- result = DeleteNode.new(val[1])
+  def _reduce_89( val, _values, result )
+ result = s(:TypeOf, val[1])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 219
-  def _reduce_88( val, _values, result )
- result = VoidNode.new(val[1])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 220
-  def _reduce_89( val, _values, result )
- result = TypeOfNode.new(val[1])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 221
   def _reduce_90( val, _values, result )
- result = PrefixNode.new(val[1], '++')
+ result = s(:Prefix, val[1], '++')
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 224
+module_eval <<'.,.,', 'lib/parser.y', 222
   def _reduce_91( val, _values, result )
- result = PrefixNode.new(val[1], '--')
+ result = s(:Prefix, val[1], '--')
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 225
+  def _reduce_92( val, _values, result )
+ result = s(:UnaryPlus, val[1])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 226
+  def _reduce_93( val, _values, result )
+ result = s(:UnaryMinus, val[1])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 227
-  def _reduce_92( val, _values, result )
- result = UnaryPlusNode.new(val[1])
+  def _reduce_94( val, _values, result )
+ result = s(:BitwiseNot, val[1])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 228
-  def _reduce_93( val, _values, result )
- result = UnaryMinusNode.new(val[1])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 229
-  def _reduce_94( val, _values, result )
- result = BitwiseNotNode.new(val[1])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 230
   def _reduce_95( val, _values, result )
- result = LogicalNotNode.new(val[1])
+ result = s(:LogicalNot, val[1])
    result
   end
 .,.,
@@ -2032,899 +2054,896 @@ module_eval <<'.,.,', 'lib/parser.y', 230
 
  # reduce 100 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 245
+module_eval <<'.,.,', 'lib/parser.y', 243
   def _reduce_101( val, _values, result )
- result = MultiplyNode.new(val[0],val[2])
+ result = s(:Multiply, val[0],val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 246
+module_eval <<'.,.,', 'lib/parser.y', 244
   def _reduce_102( val, _values, result )
- result = DivideNode.new(val[0], val[2])
+ result = s(:Divide, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 247
+module_eval <<'.,.,', 'lib/parser.y', 245
   def _reduce_103( val, _values, result )
- result = ModulusNode.new(val[0], val[2])
+ result = s(:Modulus, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 104 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 252
+module_eval <<'.,.,', 'lib/parser.y', 250
   def _reduce_105( val, _values, result )
- result = MultiplyNode.new(val[0], val[2])
+ result = s(:Multiply, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 253
+module_eval <<'.,.,', 'lib/parser.y', 251
   def _reduce_106( val, _values, result )
- result = DivideNode.new(val[0],val[2])
+ result = s(:Divide, val[0],val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 254
+module_eval <<'.,.,', 'lib/parser.y', 252
   def _reduce_107( val, _values, result )
- result = ModulusNode.new(val[0], val[2])
+ result = s(:Modulus, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 108 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 259
+module_eval <<'.,.,', 'lib/parser.y', 257
   def _reduce_109( val, _values, result )
- result = AddNode.new(val[0], val[2])
+ result = s(:Add, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 260
+module_eval <<'.,.,', 'lib/parser.y', 258
   def _reduce_110( val, _values, result )
- result = SubtractNode.new(val[0], val[2])
+ result = s(:Subtract, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 111 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 265
+module_eval <<'.,.,', 'lib/parser.y', 263
   def _reduce_112( val, _values, result )
- result = AddNode.new(val[0], val[2])
+ result = s(:Add, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 266
+module_eval <<'.,.,', 'lib/parser.y', 264
   def _reduce_113( val, _values, result )
- result = SubtractNode.new(val[0], val[2])
+ result = s(:Subtract, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 114 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 271
+module_eval <<'.,.,', 'lib/parser.y', 269
   def _reduce_115( val, _values, result )
- result = LeftShiftNode.new(val[0], val[2])
+ result = s(:LeftShift, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 272
+module_eval <<'.,.,', 'lib/parser.y', 270
   def _reduce_116( val, _values, result )
- result = RightShiftNode.new(val[0], val[2])
+ result = s(:RightShift, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 273
+module_eval <<'.,.,', 'lib/parser.y', 271
   def _reduce_117( val, _values, result )
- result = UnsignedRightShiftNode.new(val[0], val[2])
+ result = s(:UnsignedRightShift, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 118 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 278
+module_eval <<'.,.,', 'lib/parser.y', 276
   def _reduce_119( val, _values, result )
- result = LeftShiftNode.new(val[0], val[2])
+ result = s(:LeftShift, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 279
+module_eval <<'.,.,', 'lib/parser.y', 277
   def _reduce_120( val, _values, result )
- result = RightShiftNode.new(val[0], val[2])
+ result = s(:RightShift, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 280
+module_eval <<'.,.,', 'lib/parser.y', 278
   def _reduce_121( val, _values, result )
- result = UnsignedRightShiftNode.new(val[0], val[2])
+ result = s(:UnsignedRightShift, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 122 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 285
+module_eval <<'.,.,', 'lib/parser.y', 283
   def _reduce_123( val, _values, result )
- result = LessNode.new(val[0], val[2])
+ result = s(:Less, val[0], val[2])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 284
+  def _reduce_124( val, _values, result )
+ result = s(:Greater, val[0], val[2])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 285
+  def _reduce_125( val, _values, result )
+ result = s(:LessOrEqual, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 286
-  def _reduce_124( val, _values, result )
- result = GreaterNode.new(val[0], val[2])
+  def _reduce_126( val, _values, result )
+ result = s(:GreaterOrEqual, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 287
-  def _reduce_125( val, _values, result )
- result = LessOrEqualNode.new(val[0], val[2])
+  def _reduce_127( val, _values, result )
+ result = s(:InstanceOf, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 288
-  def _reduce_126( val, _values, result )
- result = GreaterOrEqualNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 289
-  def _reduce_127( val, _values, result )
- result = InstanceOfNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 290
   def _reduce_128( val, _values, result )
- result = InNode.new(val[0], val[2])
+ result = s(:In, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 129 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 295
+module_eval <<'.,.,', 'lib/parser.y', 293
   def _reduce_130( val, _values, result )
- result = LessNode.new(val[0], val[2])
+ result = s(:Less, val[0], val[2])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 294
+  def _reduce_131( val, _values, result )
+ result = s(:Greater, val[0], val[2])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 295
+  def _reduce_132( val, _values, result )
+ result = s(:LessOrEqual, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 296
-  def _reduce_131( val, _values, result )
- result = GreaterNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 297
-  def _reduce_132( val, _values, result )
- result = LessOrEqualNode.new(val[0], val[2])
+  def _reduce_133( val, _values, result )
+ result = s(:GreaterOrEqual, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 298
-  def _reduce_133( val, _values, result )
- result = GreaterOrEqualNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 300
   def _reduce_134( val, _values, result )
- result = InstanceOfNode.new(val[0], val[2])
+ result = s(:InstanceOf, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 135 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 305
+module_eval <<'.,.,', 'lib/parser.y', 303
   def _reduce_136( val, _values, result )
- result = LessNode.new(val[0], val[2])
+ result = s(:Less, val[0], val[2])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 304
+  def _reduce_137( val, _values, result )
+ result = s(:Greater, val[0], val[2])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 305
+  def _reduce_138( val, _values, result )
+ result = s(:LessOrEqual, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 306
-  def _reduce_137( val, _values, result )
- result = GreaterNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 307
-  def _reduce_138( val, _values, result )
- result = LessOrEqualNode.new(val[0], val[2])
+  def _reduce_139( val, _values, result )
+ result = s(:GreaterOrEqual, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 308
-  def _reduce_139( val, _values, result )
- result = GreaterOrEqualNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 310
   def _reduce_140( val, _values, result )
- result = InstanceOfNode.new(val[0], val[2])
+ result = s(:InstanceOf, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 311
+module_eval <<'.,.,', 'lib/parser.y', 309
   def _reduce_141( val, _values, result )
- result = InNode.new(val[0], val[2])
+ result = s(:In, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 142 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 316
+module_eval <<'.,.,', 'lib/parser.y', 314
   def _reduce_143( val, _values, result )
- result = EqualNode.new(val[0], val[2])
+ result = s(:Equal, val[0], val[2])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 315
+  def _reduce_144( val, _values, result )
+ result = s(:NotEqual, val[0], val[2])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 316
+  def _reduce_145( val, _values, result )
+ result = s(:StrictEqual, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 317
-  def _reduce_144( val, _values, result )
- result = NotEqualNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 318
-  def _reduce_145( val, _values, result )
- result = StrictEqualNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 319
   def _reduce_146( val, _values, result )
- result = NotStrictEqualNode.new(val[0], val[2])
+ result = s(:NotStrictEqual, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 147 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 325
+module_eval <<'.,.,', 'lib/parser.y', 323
   def _reduce_148( val, _values, result )
- result = EqualNode.new(val[0], val[2])
+ result = s(:Equal, val[0], val[2])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 325
+  def _reduce_149( val, _values, result )
+ result = s(:NotEqual, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 327
-  def _reduce_149( val, _values, result )
- result = NotEqualNode.new(val[0], val[2])
+  def _reduce_150( val, _values, result )
+ result = s(:StrictEqual, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 329
-  def _reduce_150( val, _values, result )
- result = StrictEqualNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 331
   def _reduce_151( val, _values, result )
- result = NotStrictEqualNode.new(val[0], val[2])
+ result = s(:NotStrictEqual, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 152 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 337
+module_eval <<'.,.,', 'lib/parser.y', 335
   def _reduce_153( val, _values, result )
- result = EqualNode.new(val[0], val[2])
+ result = s(:Equal, val[0], val[2])
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 336
+  def _reduce_154( val, _values, result )
+ result = s(:NotEqual, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 338
-  def _reduce_154( val, _values, result )
- result = NotEqualNode.new(val[0], val[2])
+  def _reduce_155( val, _values, result )
+ result = s(:StrictEqual, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 340
-  def _reduce_155( val, _values, result )
- result = StrictEqualNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 342
   def _reduce_156( val, _values, result )
- result = NotStrictEqualNode.new(val[0], val[2])
+ result = s(:NotStrictEqual, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 157 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 347
+module_eval <<'.,.,', 'lib/parser.y', 345
   def _reduce_158( val, _values, result )
- result = BitAndNode.new(val[0], val[2])
+ result = s(:BitAnd, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 159 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 353
+module_eval <<'.,.,', 'lib/parser.y', 351
   def _reduce_160( val, _values, result )
- result = BitAndNode.new(val[0], val[2])
+ result = s(:BitAnd, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 161 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 358
+module_eval <<'.,.,', 'lib/parser.y', 356
   def _reduce_162( val, _values, result )
- result = BitAndNode.new(val[0], val[2])
+ result = s(:BitAnd, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 163 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 363
+module_eval <<'.,.,', 'lib/parser.y', 361
   def _reduce_164( val, _values, result )
- result = BitXOrNode.new(val[0], val[2])
+ result = s(:BitXOr, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 165 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 369
+module_eval <<'.,.,', 'lib/parser.y', 367
   def _reduce_166( val, _values, result )
- result = BitXOrNode.new(val[0], val[2])
+ result = s(:BitXOr, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 167 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 375
+module_eval <<'.,.,', 'lib/parser.y', 373
   def _reduce_168( val, _values, result )
- result = BitXOrNode.new(val[0], val[2])
+ result = s(:BitXOr, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 169 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 380
+module_eval <<'.,.,', 'lib/parser.y', 378
   def _reduce_170( val, _values, result )
- result = BitOrNode.new(val[0], val[2])
+ result = s(:BitOr, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 171 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 386
+module_eval <<'.,.,', 'lib/parser.y', 384
   def _reduce_172( val, _values, result )
- result = BitOrNode.new(val[0], val[2])
+ result = s(:BitOr, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 173 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 392
+module_eval <<'.,.,', 'lib/parser.y', 390
   def _reduce_174( val, _values, result )
- result = BitOrNode.new(val[0], val[2])
+ result = s(:BitOr, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 175 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 397
+module_eval <<'.,.,', 'lib/parser.y', 395
   def _reduce_176( val, _values, result )
- result = LogicalAndNode.new(val[0], val[2])
+ result = s(:LogicalAnd, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 177 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 403
+module_eval <<'.,.,', 'lib/parser.y', 401
   def _reduce_178( val, _values, result )
- result = LogicalAndNode.new(val[0], val[2])
+ result = s(:LogicalAnd, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 179 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 409
+module_eval <<'.,.,', 'lib/parser.y', 407
   def _reduce_180( val, _values, result )
- result = LogicalAndNode.new(val[0], val[2])
+ result = s(:LogicalAnd, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 181 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 414
+module_eval <<'.,.,', 'lib/parser.y', 412
   def _reduce_182( val, _values, result )
- result = LogicalOrNode.new(val[0], val[2])
+ result = s(:LogicalOr, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 183 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 420
+module_eval <<'.,.,', 'lib/parser.y', 418
   def _reduce_184( val, _values, result )
- result = LogicalOrNode.new(val[0], val[2])
+ result = s(:LogicalOr, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 185 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 425
+module_eval <<'.,.,', 'lib/parser.y', 423
   def _reduce_186( val, _values, result )
- result = LogicalOrNode.new(val[0], val[2])
+ result = s(:LogicalOr, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 187 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 433
+module_eval <<'.,.,', 'lib/parser.y', 431
   def _reduce_188( val, _values, result )
-      result = ConditionalNode.new(val[0], val[2], val[4])
+      result = s(:Conditional, val[0], val[2], val[4])
    result
   end
 .,.,
 
  # reduce 189 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 440
+module_eval <<'.,.,', 'lib/parser.y', 438
   def _reduce_190( val, _values, result )
-      result = ConditionalNode.new(val[0], val[2], val[4])
+      result = s(:Conditional, val[0], val[2], val[4])
    result
   end
 .,.,
 
  # reduce 191 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 447
+module_eval <<'.,.,', 'lib/parser.y', 445
   def _reduce_192( val, _values, result )
-      result = ConditionalNode.new(val[0], val[2], val[4])
+      result = s(:Conditional, val[0], val[2], val[4])
    result
   end
 .,.,
 
  # reduce 193 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 454
+module_eval <<'.,.,', 'lib/parser.y', 452
   def _reduce_194( val, _values, result )
-      result = val[1].new(val.first, val.last)
+      result = s(val[1], val.first, val.last)
    result
   end
 .,.,
 
  # reduce 195 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 461
+module_eval <<'.,.,', 'lib/parser.y', 459
   def _reduce_196( val, _values, result )
-      result = val[1].new(val.first, val.last)
+      result = s(val[1], val.first, val.last)
    result
   end
 .,.,
 
  # reduce 197 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 468
+module_eval <<'.,.,', 'lib/parser.y', 466
   def _reduce_198( val, _values, result )
-      result = val[1].new(val.first, val.last)
+      result = s(val[1], val.first, val.last)
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 469
+  def _reduce_199( val, _values, result )
+ result = :OpEqual
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 470
+  def _reduce_200( val, _values, result )
+ result = :OpPlusEqual
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 471
-  def _reduce_199( val, _values, result )
- result = OpEqualNode
+  def _reduce_201( val, _values, result )
+ result = :OpMinusEqual
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 472
-  def _reduce_200( val, _values, result )
- result = OpPlusEqualNode
+  def _reduce_202( val, _values, result )
+ result = :OpMultiplyEqual
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 473
-  def _reduce_201( val, _values, result )
- result = OpMinusEqualNode
+  def _reduce_203( val, _values, result )
+ result = :OpDivideEqual
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 474
-  def _reduce_202( val, _values, result )
- result = OpMultiplyEqualNode
+  def _reduce_204( val, _values, result )
+ result = :OpLShiftEqual
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 475
-  def _reduce_203( val, _values, result )
- result = OpDivideEqualNode
+  def _reduce_205( val, _values, result )
+ result = :OpRShiftEqual
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 476
-  def _reduce_204( val, _values, result )
- result = OpLShiftEqualNode
+  def _reduce_206( val, _values, result )
+ result = :OpURShiftEqual
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 477
-  def _reduce_205( val, _values, result )
- result = OpRShiftEqualNode
+  def _reduce_207( val, _values, result )
+ result = :OpAndEqual
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 478
-  def _reduce_206( val, _values, result )
- result = OpURShiftEqualNode
+  def _reduce_208( val, _values, result )
+ result = :OpXOrEqual
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 479
-  def _reduce_207( val, _values, result )
- result = OpAndEqualNode
+  def _reduce_209( val, _values, result )
+ result = :OpOrEqual
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 480
-  def _reduce_208( val, _values, result )
- result = OpXOrEqualNode
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 481
-  def _reduce_209( val, _values, result )
- result = OpOrEqualNode
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 482
   def _reduce_210( val, _values, result )
- result = OpModEqualNode
+ result = :OpModEqual
    result
   end
 .,.,
 
  # reduce 211 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 487
+module_eval <<'.,.,', 'lib/parser.y', 485
   def _reduce_212( val, _values, result )
- result = CommaNode.new(val[0], val[2])
+ result = s(:Comma,val[0], val[2])
    result
   end
 .,.,
 
  # reduce 213 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 492
+module_eval <<'.,.,', 'lib/parser.y', 490
   def _reduce_214( val, _values, result )
- result = CommaNode.new(val[0], val[2])
+ result = s(:Comma, val[0], val[2])
    result
   end
 .,.,
 
  # reduce 215 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 497
+module_eval <<'.,.,', 'lib/parser.y', 495
   def _reduce_216( val, _values, result )
- result = CommaNode.new(val[0], val[2])
+ result = s(:Comma, val[0], val[2])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 506
+module_eval <<'.,.,', 'lib/parser.y', 504
   def _reduce_217( val, _values, result )
-      result = BlockNode.new(SourceElementsNode.new([]))
+      result = s(:Block, nil)
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 510
+module_eval <<'.,.,', 'lib/parser.y', 508
   def _reduce_218( val, _values, result )
-      result = BlockNode.new(SourceElementsNode.new([val[1]].flatten))
+      result = s(:Block, combine(:SourceElements, val[1]) )
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 517
+module_eval <<'.,.,', 'lib/parser.y', 515
   def _reduce_219( val, _values, result )
-      result = VarStatementNode.new(val[1])
+      result = combine(:VarStatement, val[1])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 522
+module_eval <<'.,.,', 'lib/parser.y', 520
   def _reduce_220( val, _values, result )
-      result = VarStatementNode.new(val[1])
+      result = combine(:VarStatement, val[1])
       debug(result)
-      yyerror unless allow_auto_semi?(val.last)
+      raise ParseError, "bad variable statement, #{val.to_s}" unless allow_auto_semi?(val.last)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 525
+module_eval <<'.,.,', 'lib/parser.y', 523
   def _reduce_221( val, _values, result )
  result = val
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 529
+module_eval <<'.,.,', 'lib/parser.y', 527
   def _reduce_222( val, _values, result )
-      result = [val.first, val.last].flatten
+      result = flatten_unless_sexp([val.first, val.last])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 532
+module_eval <<'.,.,', 'lib/parser.y', 530
   def _reduce_223( val, _values, result )
  result = val
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 536
+module_eval <<'.,.,', 'lib/parser.y', 534
   def _reduce_224( val, _values, result )
-      result = [val.first, val.last].flatten
+      result = flatten_unless_sexp([val.first, val.last])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 539
+module_eval <<'.,.,', 'lib/parser.y', 537
   def _reduce_225( val, _values, result )
- result = VarDeclNode.new(val.first, nil)
+ result = s(:VarDecl, val.first, nil)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 540
+module_eval <<'.,.,', 'lib/parser.y', 538
   def _reduce_226( val, _values, result )
- result = VarDeclNode.new(val.first, val[1])
+ result = s(:VarDecl, val.first, val[1])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 544
+module_eval <<'.,.,', 'lib/parser.y', 542
   def _reduce_227( val, _values, result )
- result = VarDeclNode.new(val[0],nil)
+ result = s(:VarDecl, val[0], nil)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 545
+module_eval <<'.,.,', 'lib/parser.y', 543
   def _reduce_228( val, _values, result )
- result = VarDeclNode.new(val[0], val[1])
+ result = s(:VarDecl, val[0], val[1])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 553
+module_eval <<'.,.,', 'lib/parser.y', 551
   def _reduce_229( val, _values, result )
-      result = ConstStatementNode.new(val[1])
+      result = combine(:ConstStatement, val[1])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 558
+module_eval <<'.,.,', 'lib/parser.y', 556
   def _reduce_230( val, _values, result )
-      result = ConstStatementNode.new(val[1])
+      result = combine(:ConstStatement, val[1])
       debug(result)
-      yyerror unless allow_auto_semi?(val.last)
+      raise ParseError, "bad const statement, #{val.to_s}" unless allow_auto_semi?(val.last)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 561
+module_eval <<'.,.,', 'lib/parser.y', 559
   def _reduce_231( val, _values, result )
  result = val
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 565
+module_eval <<'.,.,', 'lib/parser.y', 563
   def _reduce_232( val, _values, result )
-      result = [val.first, val.last].flatten
+      result = flatten_unless_sexp([val.first, val.last])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 568
+module_eval <<'.,.,', 'lib/parser.y', 566
   def _reduce_233( val, _values, result )
- result = VarDeclNode.new(val[0], nil, true)
+ result = s(:VarDecl, val[0], nil)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 569
+module_eval <<'.,.,', 'lib/parser.y', 567
   def _reduce_234( val, _values, result )
- result = VarDeclNode.new(val[0], val[1], true)
+ result = s(:VarDecl, val[0], val[1])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 573
+module_eval <<'.,.,', 'lib/parser.y', 571
   def _reduce_235( val, _values, result )
- result = AssignExprNode.new(val[1])
+ result = s(:AssignExpr, val[1])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 577
+module_eval <<'.,.,', 'lib/parser.y', 575
   def _reduce_236( val, _values, result )
- result = AssignExprNode.new(val[1])
+ result = s(:AssignExpr, val[1])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 581
+module_eval <<'.,.,', 'lib/parser.y', 579
   def _reduce_237( val, _values, result )
- result = EmptyStatementNode.new(val[0])
+ result = s(:EmptyStatement, val[0])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 589
+module_eval <<'.,.,', 'lib/parser.y', 587
   def _reduce_238( val, _values, result )
-      result = ExpressionStatementNode.new(val.first)
+      result = s(:ExpressionStatement, val.first)
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 594
+module_eval <<'.,.,', 'lib/parser.y', 592
   def _reduce_239( val, _values, result )
-      result = ExpressionStatementNode.new(val.first)
+      result = s(:ExpressionStatement, val.first)
       debug(result)
-      yyerror unless allow_auto_semi?(val.last)
+      raise ParseError, "bad expr statement, #{val.to_s}" unless allow_auto_semi?(val.last)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 601
+module_eval <<'.,.,', 'lib/parser.y', 599
   def _reduce_240( val, _values, result )
-      result = IfNode.new(val[2], val[4])
+      result = s(:If, val[2], val[4])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 605
+module_eval <<'.,.,', 'lib/parser.y', 603
   def _reduce_241( val, _values, result )
-      result = IfNode.new(val[2], val[4], val[6])
+      result = s(:If, val[2], val[4], val[6])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 612
+module_eval <<'.,.,', 'lib/parser.y', 610
   def _reduce_242( val, _values, result )
-      result = DoWhileNode.new(val[1], val[4])
+      result = s(:DoWhile, val[1], val[4])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 616
+module_eval <<'.,.,', 'lib/parser.y', 614
   def _reduce_243( val, _values, result )
-      result = DoWhileNode.new(val[1], val[4])
+      result = s(:DoWhile, val[1], val[4])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 620
+module_eval <<'.,.,', 'lib/parser.y', 618
   def _reduce_244( val, _values, result )
-      result = WhileNode.new(val[2], val[4])
+      result = s(:While, val[2], val[4])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 624
+module_eval <<'.,.,', 'lib/parser.y', 622
   def _reduce_245( val, _values, result )
-      result = ForNode.new(val[2], val[4], val[6], val[8])
+      result = s(:For, val[2], val[4], val[6], val[8])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 629
+module_eval <<'.,.,', 'lib/parser.y', 627
   def _reduce_246( val, _values, result )
-      result = ForNode.new(VarStatementNode.new(val[3]), val[5], val[7], val[9])
+      result = s(:For, s(:VarStatement, val[3]), val[5], val[7], val[9])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 633
+module_eval <<'.,.,', 'lib/parser.y', 631
   def _reduce_247( val, _values, result )
-      result = ForInNode.new(val[2], val[4], val[6])
+      result = s(:ForIn, val[2], val[4], val[6])
       debug(result);
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 638
+module_eval <<'.,.,', 'lib/parser.y', 635
   def _reduce_248( val, _values, result )
-      result = ForInNode.new(
-        VarDeclNode.new(val[3], nil), val[5], val[7])
+      result = s(:ForIn, s(:VarDecl, val[3], nil), val[5], val[7])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 644
+module_eval <<'.,.,', 'lib/parser.y', 639
   def _reduce_249( val, _values, result )
-      result = ForInNode.new(
-        VarDeclNode.new(val[3], val[4]), val[6], val[8]
-      )
+      result = s(:ForIn, s(:VarDecl, val[3], val[4]), val[6], val[8])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 647
+module_eval <<'.,.,', 'lib/parser.y', 642
   def _reduce_250( val, _values, result )
  result = nil
    result
@@ -2933,7 +2952,7 @@ module_eval <<'.,.,', 'lib/parser.y', 647
 
  # reduce 251 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 652
+module_eval <<'.,.,', 'lib/parser.y', 647
   def _reduce_252( val, _values, result )
  result = nil
    result
@@ -2942,326 +2961,326 @@ module_eval <<'.,.,', 'lib/parser.y', 652
 
  # reduce 253 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 661
+module_eval <<'.,.,', 'lib/parser.y', 656
   def _reduce_254( val, _values, result )
-      result = ContinueNode.new(nil)
+      result = s(:Continue, nil)
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 666
+module_eval <<'.,.,', 'lib/parser.y', 661
   def _reduce_255( val, _values, result )
-      result = ContinueNode.new(nil)
+      result = s(:Continue, nil)
       debug(result)
-      yyerror unless allow_auto_semi?(val[1])
+      raise ParseError, "bad continue statement, #{val.to_s}" unless allow_auto_semi?(val.last)
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 665
+  def _reduce_256( val, _values, result )
+      result = s(:Continue, val[1])
+      debug(result)
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 670
-  def _reduce_256( val, _values, result )
-      result = ContinueNode.new(val[1])
+  def _reduce_257( val, _values, result )
+      result = s(:Continue, val[1])
       debug(result)
+      raise ParseError, "bad continue statement, #{val.to_s}" unless allow_auto_semi?(val.last)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 675
-  def _reduce_257( val, _values, result )
-      result = ContinueNode.new(val[1])
+module_eval <<'.,.,', 'lib/parser.y', 677
+  def _reduce_258( val, _values, result )
+      result = s(:Break, nil)
       debug(result)
-      yyerror unless allow_auto_semi?(val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 682
-  def _reduce_258( val, _values, result )
-      result = BreakNode.new(nil)
+  def _reduce_259( val, _values, result )
+      result = s(:Break, nil)
       debug(result)
+      raise ParseError, "bad break statement, #{val.to_s}" unless allow_auto_semi?(val.last)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 687
-  def _reduce_259( val, _values, result )
-      result = BreakNode.new(nil)
+module_eval <<'.,.,', 'lib/parser.y', 686
+  def _reduce_260( val, _values, result )
+      result = s(:Break, val[1])
       debug(result)
-      yyerror unless allow_auto_semi?(val[1])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 691
-  def _reduce_260( val, _values, result )
-      result = BreakNode.new(val[1])
+  def _reduce_261( val, _values, result )
+      result = s(:Break, val[1])
       debug(result)
+      raise ParseError, "bad break statement, #{val.to_s}" unless allow_auto_semi?(val.last)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 696
-  def _reduce_261( val, _values, result )
-      result = BreakNode.new(val[1])
+module_eval <<'.,.,', 'lib/parser.y', 698
+  def _reduce_262( val, _values, result )
+      result = s(:Return, nil)
       debug(result)
-      yyerror unless allow_auto_semi?(val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 703
-  def _reduce_262( val, _values, result )
-      result = ReturnNode.new(nil)
+  def _reduce_263( val, _values, result )
+      result = s(:Return, nil)
       debug(result)
+      raise ParseError, "bad return statement, #{val.to_s}" unless allow_auto_semi?(val.last)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 708
-  def _reduce_263( val, _values, result )
-      result = ReturnNode.new(nil)
+module_eval <<'.,.,', 'lib/parser.y', 707
+  def _reduce_264( val, _values, result )
+      result = s(:Return, val[1])
       debug(result)
-      yyerror unless allow_auto_semi?(val[1])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 712
-  def _reduce_264( val, _values, result )
-      result = ReturnNode.new(val[1])
-      debug(result)
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 717
   def _reduce_265( val, _values, result )
-      result = ReturnNode.new(val[1])
+      result = s(:Return, val[1])
       debug(result)
-      yyerror unless allow_auto_semi?(val[2])
+      raise ParseError, "bad return statement, #{val.to_s}" unless allow_auto_semi?(val.last)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 724
+module_eval <<'.,.,', 'lib/parser.y', 719
   def _reduce_266( val, _values, result )
-      result = WithNode.new(val[2], val[4])
+      result = s(:With, val[2], val[4])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 731
+module_eval <<'.,.,', 'lib/parser.y', 726
   def _reduce_267( val, _values, result )
-      result = SwitchNode.new(val[2], val[4])
+      result = s(:Switch, val[2], val[4])
       debug(result)
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 729
+  def _reduce_268( val, _values, result )
+ result = combine(:CaseBlock, flatten_unless_sexp([val[1]]) )
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 730
+  def _reduce_269( val, _values, result )
+ result = combine(:CaseBlock, flatten_unless_sexp([val[1], val[2], val[3]]) )
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 734
-  def _reduce_268( val, _values, result )
- result = CaseBlockNode.new(val[1])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 738
-  def _reduce_269( val, _values, result )
-      result = CaseBlockNode.new([val[1], val[2], val[3]].flatten)
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 741
   def _reduce_270( val, _values, result )
- result = []
+ result = nil
    result
   end
 .,.,
 
  # reduce 271 omitted
 
-module_eval <<'.,.,', 'lib/parser.y', 746
+module_eval <<'.,.,', 'lib/parser.y', 739
   def _reduce_272( val, _values, result )
  result = val
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 747
+module_eval <<'.,.,', 'lib/parser.y', 740
   def _reduce_273( val, _values, result )
- result = val.flatten
+ result = flatten_unless_sexp(val)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 751
+module_eval <<'.,.,', 'lib/parser.y', 744
   def _reduce_274( val, _values, result )
- result = CaseClauseNode.new(val[1])
+ result = s(:CaseClause, val[1])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 755
+module_eval <<'.,.,', 'lib/parser.y', 746
   def _reduce_275( val, _values, result )
-      result = CaseClauseNode.new(val[1], SourceElementsNode.new([val[3]].flatten))
+ result = s(:CaseClause, val[1], combine(:SourceElements, val[3]) )
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 761
+module_eval <<'.,.,', 'lib/parser.y', 753
   def _reduce_276( val, _values, result )
-      result = CaseClauseNode.new(nil, SourceElementsNode.new([]))
+      result = s(:CaseClause, nil, nil)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 764
+module_eval <<'.,.,', 'lib/parser.y', 756
   def _reduce_277( val, _values, result )
-      result = CaseClauseNode.new(nil, SourceElementsNode.new([val[2]].flatten))
+      result = s(:CaseClause, nil, combine(:SourceElements, val[2]) )
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 759
+  def _reduce_278( val, _values, result )
+ result = s(:Label, val[0], val[2])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 767
-  def _reduce_278( val, _values, result )
- result = LabelNode.new(val[0], val[2])
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 775
   def _reduce_279( val, _values, result )
-      result = ThrowNode.new(val[1])
+      result = s(:Throw, val[1])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 780
+module_eval <<'.,.,', 'lib/parser.y', 772
   def _reduce_280( val, _values, result )
-      result = ThrowNode.new(val[1])
+      result = s(:Throw, val[1])
       debug(result)
-      yyerror unless allow_auto_semi?(val[2])
+      raise ParseError, "bad throw statement, #{val.to_s}" unless allow_auto_semi?(val.last)
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 779
+  def _reduce_281( val, _values, result )
+      result = s(:Try, val[1], nil, nil, val[3])
+      debug(result)
+   result
+  end
+.,.,
+
+module_eval <<'.,.,', 'lib/parser.y', 783
+  def _reduce_282( val, _values, result )
+      result = s(:Try, val[1], val[4], val[6])
+      debug(result)
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 787
-  def _reduce_281( val, _values, result )
-      result = TryNode.new(val[1], nil, nil, val[3])
-      debug(result)
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 791
-  def _reduce_282( val, _values, result )
-      result = TryNode.new(val[1], val[4], val[6])
-      debug(result)
-   result
-  end
-.,.,
-
-module_eval <<'.,.,', 'lib/parser.y', 795
   def _reduce_283( val, _values, result )
-      result = TryNode.new(val[1], val[4], val[6], val[8])
+      result = s(:Try, val[1], val[4], val[6], val[8])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 802
+module_eval <<'.,.,', 'lib/parser.y', 794
   def _reduce_284( val, _values, result )
-      result = EmptyStatementNode.new(val[0])
+      result = s(:EmptyStatement, val[0])
       debug(result)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 807
+module_eval <<'.,.,', 'lib/parser.y', 799
   def _reduce_285( val, _values, result )
-      result = EmptyStatementNode.new(val[0])
+      result = s(:EmptyStatement, val[0])
       debug(result)
-      yyerror unless allow_auto_semi?(val[1])
+      raise ParseError, "bad debugger statement, #{val.to_s}" unless allow_auto_semi?(val.last)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 814
+module_eval <<'.,.,', 'lib/parser.y', 806
   def _reduce_286( val, _values, result )
-      result = FunctionDeclNode.new(val[1], val[5])
+      result = s(:FunctionDecl, val[1], val[5])
       debug(val[5])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 818
+module_eval <<'.,.,', 'lib/parser.y', 810
   def _reduce_287( val, _values, result )
-      result = FunctionDeclNode.new(val[1], val[6], val[3])
+      result = s(:FunctionDecl, val[1], val[6], val[3])
       debug(val[6])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 825
+module_eval <<'.,.,', 'lib/parser.y', 817
   def _reduce_288( val, _values, result )
-      result = FunctionExprNode.new(val[0], val[4])
+      result = s(:FunctionExpr, val[0], [], val[4])
       debug(val[4])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 829
+module_eval <<'.,.,', 'lib/parser.y', 821
   def _reduce_289( val, _values, result )
-      result = FunctionExprNode.new(val[0], val[5], val[2])
+      result = s(:FunctionExpr, val[0], val[2], val[5])
       debug(val[5])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 833
+module_eval <<'.,.,', 'lib/parser.y', 825
   def _reduce_290( val, _values, result )
-      result = FunctionExprNode.new(val[1], val[5])
+      result = s(:FunctionExpr, val[1], [], val[5])
       debug(val[5])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 837
+module_eval <<'.,.,', 'lib/parser.y', 829
   def _reduce_291( val, _values, result )
-      result = FunctionExprNode.new(val[1], val[6], val[3])
+      result = s(:FunctionExpr, val[1], val[3], val[6])
       debug(val[6])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 840
+module_eval <<'.,.,', 'lib/parser.y', 832
   def _reduce_292( val, _values, result )
- result = [ParameterNode.new(val[0])]
+ result = [s(:Parameter,val[0])]
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 844
+module_eval <<'.,.,', 'lib/parser.y', 836
   def _reduce_293( val, _values, result )
-      result = [val.first, ParameterNode.new(val.last)].flatten
+      					  result = flatten_unless_sexp([val.first, s(:Parameter, val.last)])
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 847
+module_eval <<'.,.,', 'lib/parser.y', 839
   def _reduce_294( val, _values, result )
- result = FunctionBodyNode.new(SourceElementsNode.new([]))
+ result = s(:FunctionBody, nil)
    result
   end
 .,.,
 
-module_eval <<'.,.,', 'lib/parser.y', 848
+module_eval <<'.,.,', 'lib/parser.y', 840
   def _reduce_295( val, _values, result )
- result = FunctionBodyNode.new(SourceElementsNode.new([val[0]].flatten))
+ result = s(:FunctionBody, combine(:SoureElements, val[0]) )
    result
   end
 .,.,

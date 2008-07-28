@@ -8,6 +8,8 @@ filename = 'example/test.js'
 jsfile = File.open(filename).read
 
 #puts FbjsRewriter.translate(jsfile)
-#puts JsProcessor.translate(jsfile)
 
-puts RKelly::Parser.new.parse(jsfile).to_sexp
+p RKelly::Parser.new.parse(jsfile)
+
+puts JsProcessor.translate(jsfile)
+

@@ -39,10 +39,10 @@ prechigh
 preclow
 
 rule
-  SourceElements:
+
+  SourceElements
     SourceElement
-  | SourceElements SourceElement        { result = val.flatten }
-  ;
+  | SourceElements SourceElement { result = flatten_unless_sexp(val) }
 
   SourceElement:
     FunctionDeclaration
@@ -69,66 +69,64 @@ rule
   ;
 
   Literal:
-    NULL    { result = NullNode.new(val.first) }
-  | TRUE    { result = TrueNode.new(val.first) }
-  | FALSE   { result = FalseNode.new(val.first) }
-  | NUMBER  { result = NumberNode.new(val.first) }
-  | STRING  { result = StringNode.new(val.first) }
-  | REGEXP  { result = RegexpNode.new(val.first) }
+    NULL    { result = s(:Null, val.first) }
+  | TRUE    { result = s(:True, val.first) }
+  | FALSE   { result = s(:False, val.first) }
+  | NUMBER  { result = s(:Number, val.first) }
+  | STRING  { result = s(:String, val.first) }
+  | REGEXP  { result = s(:Regexp, val.first) }
   ;
 
   Property:
     IDENT ':' AssignmentExpr {
-      result = PropertyNode.new(val[0], val[2])
+      result = s(:Property, val[0], val[2])
     }
-  | STRING ':' AssignmentExpr { result = PropertyNode.new(val.first, val.last) }
-  | NUMBER ':' AssignmentExpr { result = PropertyNode.new(val.first, val.last) }
+  | STRING ':' AssignmentExpr { result = s(:Property, val.first, val.last) }
+  | NUMBER ':' AssignmentExpr { result = s(:Property, val.first, val.last) }
   | IDENT IDENT '(' ')' '{' FunctionBody '}'  {
       klass = property_class_for(val.first)
-      yyerror unless klass
-      result = klass.new(val[1], FunctionExprNode.new(nil, val[5]))
+      raise ParseError, "expected keyword 'get' or 'set' but saw #{val.first}" unless klass
+      result = s(klass, val[1], s(:FunctionExpr, nil, [], val[5]))
     }
   | IDENT IDENT '(' FormalParameterList ')' '{' FunctionBody '}' {
       klass = property_class_for(val.first)
-      yyerror unless klass
-      result = klass.new(val[1], FunctionExprNode.new(nil, val[6], val[3]))
+      raise ParseError, "expected keyword 'get' or 'set' but saw #{val.first}" unless klass
+      result = s(klass, val[1], s(:FunctionExpr, nil, val[3], val[6]))
     }
   ;
 
   PropertyList:
     Property                    { result = val }
-  | PropertyList ',' Property   { result = [val.first, val.last].flatten }
+  | PropertyList ',' Property   { result = flatten_unless_sexp([val.first, val.last]) }
   ;
 
   PrimaryExpr:
     PrimaryExprNoBrace
-  | '{' '}'                   { result = ObjectLiteralNode.new([]) }
-  | '{' PropertyList '}'      { result = ObjectLiteralNode.new(val[1]) }
-  | '{' PropertyList ',' '}'  { result = ObjectLiteralNode.new(val[1]) }
+  | '{' '}'                   { result = s(:ObjectLiteral, nil) }
+  | '{' PropertyList '}'      { result = combine(:ObjectLiteral, val[1]) }
+  | '{' PropertyList ',' '}'  { result = combine(:ObjectLiteral, val[1]) }
   ;
 
   PrimaryExprNoBrace:
-    THIS          { result = ThisNode.new(val.first) }
+    THIS          { result = s(:This, val.first) }
   | Literal
   | ArrayLiteral
-  | IDENT         { result = ResolveNode.new(val.first) }
+  | IDENT         { result = s(:Resolve, val.first) }
   | '(' Expr ')'  { result = val[1] }
   ;
 
   ArrayLiteral:
-    '[' ElisionOpt ']'           { result = ArrayNode.new([] + [nil] * val[1]) }
-  | '[' ElementList ']'                 { result = ArrayNode.new(val[1]) }
-  | '[' ElementList ',' ElisionOpt ']'  {
-      result = ArrayNode.new(val[1] + [nil] * val[3])
-    }
+    '[' ElisionOpt ']'           	{ result = combine(:Array, [nil] * val[1]) }
+  | '[' ElementList ']'                 { result = combine(:Array, val[1]) }
+  | '[' ElementList ',' ElisionOpt ']'  { result = combine(:Array, val[1] + [nil] * val[3]) }
   ;
 
   ElementList:
     ElisionOpt AssignmentExpr {
-      result = [nil] * val[0] + [ElementNode.new(val[1])]
+      result = [nil] * val[0] + [s(:Element, val[1])]
     }
   | ElementList ',' ElisionOpt AssignmentExpr {
-      result = [val[0], [nil] * val[2], ElementNode.new(val[3])].flatten
+      result = flatten_unless_sexp([val[0], [nil] * val[2], s(:Element, val[3])])
     }
   ;
 
@@ -145,52 +143,52 @@ rule
   MemberExpr:
     PrimaryExpr
   | FunctionExpr
-  | MemberExpr '[' Expr ']' { result = BracketAccessorNode.new(val[0], val[2]) }
-  | MemberExpr '.' IDENT    { result = DotAccessorNode.new(val[0], val[2]) }
-  | NEW MemberExpr Arguments { result = NewExprNode.new(val[1], val[2]) }
+  | MemberExpr '[' Expr ']' { result = s(:BracketAccessor, val[0], val[2]) }
+  | MemberExpr '.' IDENT    { result = s(:DotAccessor, val[0], val[2]) }
+  | NEW MemberExpr Arguments { result = s(:NewExpr, val[1], val[2]) }
   ;
 
   MemberExprNoBF:
     PrimaryExprNoBrace
   | MemberExprNoBF '[' Expr ']' {
-      result = BracketAccessorNode.new(val[0], val[2])
+      result = s(:BracketAccessor, val[0], val[2])
     }
-  | MemberExprNoBF '.' IDENT    { result = DotAccessorNode.new(val[0], val[2]) }
-  | NEW MemberExpr Arguments    { result = NewExprNode.new(val[1], val[2]) }
+  | MemberExprNoBF '.' IDENT    { result = s(:DotAccessor, val[0], val[2]) }
+  | NEW MemberExpr Arguments    { result = s(:NewExpr, val[1], val[2]) }
   ;
 
   NewExpr:
     MemberExpr
-  | NEW NewExpr { result = NewExprNode.new(val[1], ArgumentsNode.new([])) }
+  | NEW NewExpr { result = s(:NewExpr, val[1], s(:Arguments, nil)) }
   ;
 
   NewExprNoBF:
     MemberExprNoBF
-  | NEW NewExpr { result = NewExprNode.new(val[1], ArgumentsNode.new([])) }
+  | NEW NewExpr { result = s(:NewExpr, val[1], s(:Arguments, nil)) }
   ;
 
   CallExpr:
-    MemberExpr Arguments  { result = FunctionCallNode.new(val[0], val[1]) }
-  | CallExpr Arguments    { result = FunctionCallNode.new(val[0], val[1]) }
-  | CallExpr '[' Expr ']' { result = BracketAccessorNode.new(val[0], val[2]) }
-  | CallExpr '.' IDENT    { result = DotAccessorNode.new(val[0], val[2]) }
+    MemberExpr Arguments  { result = s(:FunctionCall, val[0], val[1]) }
+  | CallExpr Arguments    { result = s(:FunctionCall, val[0], val[1]) }
+  | CallExpr '[' Expr ']' { result = s(:BracketAccessor, val[0], val[2]) }
+  | CallExpr '.' IDENT    { result = s(:DotAccessor, val[0], val[2]) }
   ;
 
   CallExprNoBF:
-    MemberExprNoBF Arguments  { result = FunctionCallNode.new(val[0], val[1]) }
-  | CallExprNoBF Arguments    { result = FunctionCallNode.new(val[0], val[1]) }
-  | CallExprNoBF '[' Expr ']' { result = BracketAccessorNode.new(val[0], val[2]) }
-  | CallExprNoBF '.' IDENT    { result = DotAccessorNode.new(val[0], val[2]) }
+    MemberExprNoBF Arguments  { result = s(:FunctionCall, val[0], val[1]) }
+  | CallExprNoBF Arguments    { result = s(:FunctionCall, val[0], val[1]) }
+  | CallExprNoBF '[' Expr ']' { result = s(:BracketAccessor, val[0], val[2]) }
+  | CallExprNoBF '.' IDENT    { result = s(:DotAccessor, val[0], val[2]) }
   ;
 
   Arguments:
-    '(' ')'               { result = ArgumentsNode.new([]) }
-  | '(' ArgumentList ')'  { result = ArgumentsNode.new(val[1]); }
+    '(' ')'               { result = s(:Arguments, nil) }
+  | '(' ArgumentList ')'  { result = combine(:Arguments, val[1]) }
   ;
 
   ArgumentList:
     AssignmentExpr                      { result = val }
-  | ArgumentList ',' AssignmentExpr     { result = [val[0], val[2]].flatten }
+  | ArgumentList ',' AssignmentExpr     { result = flatten_unless_sexp([val.first, val.last]) }
   ;
 
   LeftHandSideExpr:
@@ -205,30 +203,30 @@ rule
 
   PostfixExpr:
     LeftHandSideExpr
-  | LeftHandSideExpr PLUSPLUS   { result = PostfixNode.new(val[0], '++') }
-  | LeftHandSideExpr MINUSMINUS { result = PostfixNode.new(val[0], '--') }
+  | LeftHandSideExpr PLUSPLUS   { result = s(:Postfix, val[0], '++') }
+  | LeftHandSideExpr MINUSMINUS { result = s(:Postfix, val[0], '--') }
   ;
 
   PostfixExprNoBF:
     LeftHandSideExprNoBF
-  | LeftHandSideExprNoBF PLUSPLUS   { result = PostfixNode.new(val[0], '++') }
-  | LeftHandSideExprNoBF MINUSMINUS { result = PostfixNode.new(val[0], '--') }
+  | LeftHandSideExprNoBF PLUSPLUS   { result = s(:Postfix, val[0], '++') }
+  | LeftHandSideExprNoBF MINUSMINUS { result = s(:Postfix, val[0], '--') }
   ;
 
   UnaryExprCommon:
-    DELETE UnaryExpr     { result = DeleteNode.new(val[1]) }
-  | VOID UnaryExpr       { result = VoidNode.new(val[1]) }
-  | TYPEOF UnaryExpr          { result = TypeOfNode.new(val[1]) }
-  | PLUSPLUS UnaryExpr        { result = PrefixNode.new(val[1], '++') }
+    DELETE UnaryExpr     { result = s(:Delete, val[1]) }
+  | VOID UnaryExpr       { result = s(:Void, val[1]) }
+  | TYPEOF UnaryExpr          { result = s(:TypeOf, val[1]) }
+  | PLUSPLUS UnaryExpr        { result = s(:Prefix, val[1], '++') }
   /* FIXME: Not sure when this can ever happen
   | AUTOPLUSPLUS UnaryExpr    { result = makePrefixNode($2, OpPlusPlus); } */
-  | MINUSMINUS UnaryExpr      { result = PrefixNode.new(val[1], '--') }
+  | MINUSMINUS UnaryExpr      { result = s(:Prefix, val[1], '--') }
   /* FIXME: Not sure when this can ever happen
   | AUTOMINUSMINUS UnaryExpr  { result = makePrefixNode($2, OpMinusMinus); } */
-  | '+' UnaryExpr             { result = UnaryPlusNode.new(val[1]) }
-  | '-' UnaryExpr             { result = UnaryMinusNode.new(val[1]) }
-  | '~' UnaryExpr             { result = BitwiseNotNode.new(val[1]) }
-  | '!' UnaryExpr             { result = LogicalNotNode.new(val[1]) }
+  | '+' UnaryExpr             { result = s(:UnaryPlus, val[1]) }
+  | '-' UnaryExpr             { result = s(:UnaryMinus, val[1]) }
+  | '~' UnaryExpr             { result = s(:BitwiseNot, val[1]) }
+  | '!' UnaryExpr             { result = s(:LogicalNot, val[1]) }
   ;
 
   UnaryExpr:
@@ -243,403 +241,400 @@ rule
 
   MultiplicativeExpr:
     UnaryExpr
-  | MultiplicativeExpr '*' UnaryExpr { result = MultiplyNode.new(val[0],val[2])}
-  | MultiplicativeExpr '/' UnaryExpr { result = DivideNode.new(val[0], val[2]) }
-  | MultiplicativeExpr '%' UnaryExpr { result = ModulusNode.new(val[0], val[2])}
+  | MultiplicativeExpr '*' UnaryExpr { result = s(:Multiply, val[0],val[2])}
+  | MultiplicativeExpr '/' UnaryExpr { result = s(:Divide, val[0], val[2]) }
+  | MultiplicativeExpr '%' UnaryExpr { result = s(:Modulus, val[0], val[2])}
   ;
 
   MultiplicativeExprNoBF:
     UnaryExprNoBF
-  | MultiplicativeExprNoBF '*' UnaryExpr { result = MultiplyNode.new(val[0], val[2]) }
-  | MultiplicativeExprNoBF '/' UnaryExpr { result = DivideNode.new(val[0],val[2]) }
-  | MultiplicativeExprNoBF '%' UnaryExpr { result = ModulusNode.new(val[0], val[2]) }
+  | MultiplicativeExprNoBF '*' UnaryExpr { result = s(:Multiply, val[0], val[2]) }
+  | MultiplicativeExprNoBF '/' UnaryExpr { result = s(:Divide, val[0],val[2]) }
+  | MultiplicativeExprNoBF '%' UnaryExpr { result = s(:Modulus, val[0], val[2]) }
   ;
 
   AdditiveExpr:
     MultiplicativeExpr
-  | AdditiveExpr '+' MultiplicativeExpr { result = AddNode.new(val[0], val[2]) }
-  | AdditiveExpr '-' MultiplicativeExpr { result = SubtractNode.new(val[0], val[2]) }
+  | AdditiveExpr '+' MultiplicativeExpr { result = s(:Add, val[0], val[2]) }
+  | AdditiveExpr '-' MultiplicativeExpr { result = s(:Subtract, val[0], val[2]) }
   ;
 
   AdditiveExprNoBF:
     MultiplicativeExprNoBF
-  | AdditiveExprNoBF '+' MultiplicativeExpr { result = AddNode.new(val[0], val[2]) }
-  | AdditiveExprNoBF '-' MultiplicativeExpr { result = SubtractNode.new(val[0], val[2]) }
+  | AdditiveExprNoBF '+' MultiplicativeExpr { result = s(:Add, val[0], val[2]) }
+  | AdditiveExprNoBF '-' MultiplicativeExpr { result = s(:Subtract, val[0], val[2]) }
   ;
 
   ShiftExpr:
     AdditiveExpr
-  | ShiftExpr LSHIFT AdditiveExpr   { result = LeftShiftNode.new(val[0], val[2]) }
-  | ShiftExpr RSHIFT AdditiveExpr   { result = RightShiftNode.new(val[0], val[2]) }
-  | ShiftExpr URSHIFT AdditiveExpr  { result = UnsignedRightShiftNode.new(val[0], val[2]) }
+  | ShiftExpr LSHIFT AdditiveExpr   { result = s(:LeftShift, val[0], val[2]) }
+  | ShiftExpr RSHIFT AdditiveExpr   { result = s(:RightShift, val[0], val[2]) }
+  | ShiftExpr URSHIFT AdditiveExpr  { result = s(:UnsignedRightShift, val[0], val[2]) }
   ;
 
   ShiftExprNoBF:
     AdditiveExprNoBF
-  | ShiftExprNoBF LSHIFT AdditiveExpr   { result = LeftShiftNode.new(val[0], val[2]) }
-  | ShiftExprNoBF RSHIFT AdditiveExpr   { result = RightShiftNode.new(val[0], val[2]) }
-  | ShiftExprNoBF URSHIFT AdditiveExpr  { result = UnsignedRightShiftNode.new(val[0], val[2]) }
+  | ShiftExprNoBF LSHIFT AdditiveExpr   { result = s(:LeftShift, val[0], val[2]) }
+  | ShiftExprNoBF RSHIFT AdditiveExpr   { result = s(:RightShift, val[0], val[2]) }
+  | ShiftExprNoBF URSHIFT AdditiveExpr  { result = s(:UnsignedRightShift, val[0], val[2]) }
   ;
 
   RelationalExpr:
     ShiftExpr
-  | RelationalExpr '<' ShiftExpr        { result = LessNode.new(val[0], val[2])}
-  | RelationalExpr '>' ShiftExpr        { result = GreaterNode.new(val[0], val[2]) }
-  | RelationalExpr LE ShiftExpr         { result = LessOrEqualNode.new(val[0], val[2]) }
-  | RelationalExpr GE ShiftExpr         { result = GreaterOrEqualNode.new(val[0], val[2]) }
-  | RelationalExpr INSTANCEOF ShiftExpr { result = InstanceOfNode.new(val[0], val[2]) }
-  | RelationalExpr IN ShiftExpr    { result = InNode.new(val[0], val[2]) }
+  | RelationalExpr '<' ShiftExpr        { result = s(:Less, val[0], val[2])}
+  | RelationalExpr '>' ShiftExpr        { result = s(:Greater, val[0], val[2]) }
+  | RelationalExpr LE ShiftExpr         { result = s(:LessOrEqual, val[0], val[2]) }
+  | RelationalExpr GE ShiftExpr         { result = s(:GreaterOrEqual, val[0], val[2]) }
+  | RelationalExpr INSTANCEOF ShiftExpr { result = s(:InstanceOf, val[0], val[2]) }
+  | RelationalExpr IN ShiftExpr    	{ result = s(:In, val[0], val[2]) }
   ;
 
   RelationalExprNoIn:
     ShiftExpr
-  | RelationalExprNoIn '<' ShiftExpr    { result = LessNode.new(val[0], val[2])}
-  | RelationalExprNoIn '>' ShiftExpr    { result = GreaterNode.new(val[0], val[2]) }
-  | RelationalExprNoIn LE ShiftExpr     { result = LessOrEqualNode.new(val[0], val[2]) }
-  | RelationalExprNoIn GE ShiftExpr     { result = GreaterOrEqualNode.new(val[0], val[2]) }
+  | RelationalExprNoIn '<' ShiftExpr    { result = s(:Less, val[0], val[2])}
+  | RelationalExprNoIn '>' ShiftExpr    { result = s(:Greater, val[0], val[2]) }
+  | RelationalExprNoIn LE ShiftExpr     { result = s(:LessOrEqual, val[0], val[2]) }
+  | RelationalExprNoIn GE ShiftExpr     { result = s(:GreaterOrEqual, val[0], val[2]) }
   | RelationalExprNoIn INSTANCEOF ShiftExpr
-                                        { result = InstanceOfNode.new(val[0], val[2]) }
+                                        { result = s(:InstanceOf, val[0], val[2]) }
   ;
 
   RelationalExprNoBF:
     ShiftExprNoBF
-  | RelationalExprNoBF '<' ShiftExpr    { result = LessNode.new(val[0], val[2]) }
-  | RelationalExprNoBF '>' ShiftExpr    { result = GreaterNode.new(val[0], val[2]) }
-  | RelationalExprNoBF LE ShiftExpr     { result = LessOrEqualNode.new(val[0], val[2]) }
-  | RelationalExprNoBF GE ShiftExpr     { result = GreaterOrEqualNode.new(val[0], val[2]) }
+  | RelationalExprNoBF '<' ShiftExpr    { result = s(:Less, val[0], val[2]) }
+  | RelationalExprNoBF '>' ShiftExpr    { result = s(:Greater, val[0], val[2]) }
+  | RelationalExprNoBF LE ShiftExpr     { result = s(:LessOrEqual, val[0], val[2]) }
+  | RelationalExprNoBF GE ShiftExpr     { result = s(:GreaterOrEqual, val[0], val[2]) }
   | RelationalExprNoBF INSTANCEOF ShiftExpr
-                                        { result = InstanceOfNode.new(val[0], val[2]) }
-  | RelationalExprNoBF IN ShiftExpr     { result = InNode.new(val[0], val[2]) }
+                                        { result = s(:InstanceOf, val[0], val[2]) }
+  | RelationalExprNoBF IN ShiftExpr     { result = s(:In, val[0], val[2]) }
   ;
 
   EqualityExpr:
     RelationalExpr
-  | EqualityExpr EQEQ RelationalExpr    { result = EqualNode.new(val[0], val[2]) }
-  | EqualityExpr NE RelationalExpr      { result = NotEqualNode.new(val[0], val[2]) }
-  | EqualityExpr STREQ RelationalExpr   { result = StrictEqualNode.new(val[0], val[2]) }
-  | EqualityExpr STRNEQ RelationalExpr  { result = NotStrictEqualNode.new(val[0], val[2]) }
+  | EqualityExpr EQEQ RelationalExpr    { result = s(:Equal, val[0], val[2]) }
+  | EqualityExpr NE RelationalExpr      { result = s(:NotEqual, val[0], val[2]) }
+  | EqualityExpr STREQ RelationalExpr   { result = s(:StrictEqual, val[0], val[2]) }
+  | EqualityExpr STRNEQ RelationalExpr  { result = s(:NotStrictEqual, val[0], val[2]) }
   ;
 
   EqualityExprNoIn:
     RelationalExprNoIn
   | EqualityExprNoIn EQEQ RelationalExprNoIn
-                                        { result = EqualNode.new(val[0], val[2]) }
+                                        { result = s(:Equal, val[0], val[2]) }
   | EqualityExprNoIn NE RelationalExprNoIn
-                                        { result = NotEqualNode.new(val[0], val[2]) }
+                                        { result = s(:NotEqual, val[0], val[2]) }
   | EqualityExprNoIn STREQ RelationalExprNoIn
-                                        { result = StrictEqualNode.new(val[0], val[2]) }
+                                        { result = s(:StrictEqual, val[0], val[2]) }
   | EqualityExprNoIn STRNEQ RelationalExprNoIn
-                                        { result = NotStrictEqualNode.new(val[0], val[2]) }
+                                        { result = s(:NotStrictEqual, val[0], val[2]) }
   ;
 
   EqualityExprNoBF:
     RelationalExprNoBF
   | EqualityExprNoBF EQEQ RelationalExpr
-                                        { result = EqualNode.new(val[0], val[2]) }
-  | EqualityExprNoBF NE RelationalExpr  { result = NotEqualNode.new(val[0], val[2]) }
+                                        { result = s(:Equal, val[0], val[2]) }
+  | EqualityExprNoBF NE RelationalExpr  { result = s(:NotEqual, val[0], val[2]) }
   | EqualityExprNoBF STREQ RelationalExpr
-                                        { result = StrictEqualNode.new(val[0], val[2]) }
+                                        { result = s(:StrictEqual, val[0], val[2]) }
   | EqualityExprNoBF STRNEQ RelationalExpr
-                                        { result = NotStrictEqualNode.new(val[0], val[2]) }
+                                        { result = s(:NotStrictEqual, val[0], val[2]) }
   ;
 
   BitwiseANDExpr:
     EqualityExpr
-  | BitwiseANDExpr '&' EqualityExpr     { result = BitAndNode.new(val[0], val[2]) }
+  | BitwiseANDExpr '&' EqualityExpr     { result = s(:BitAnd, val[0], val[2]) }
   ;
 
   BitwiseANDExprNoIn:
     EqualityExprNoIn
   | BitwiseANDExprNoIn '&' EqualityExprNoIn
-                                        { result = BitAndNode.new(val[0], val[2]) }
+                                        { result = s(:BitAnd, val[0], val[2]) }
   ;
 
   BitwiseANDExprNoBF:
     EqualityExprNoBF
-  | BitwiseANDExprNoBF '&' EqualityExpr { result = BitAndNode.new(val[0], val[2]) }
+  | BitwiseANDExprNoBF '&' EqualityExpr { result = s(:BitAnd, val[0], val[2]) }
   ;
 
   BitwiseXORExpr:
     BitwiseANDExpr
-  | BitwiseXORExpr '^' BitwiseANDExpr   { result = BitXOrNode.new(val[0], val[2]) }
+  | BitwiseXORExpr '^' BitwiseANDExpr   { result = s(:BitXOr, val[0], val[2]) }
   ;
 
   BitwiseXORExprNoIn:
     BitwiseANDExprNoIn
   | BitwiseXORExprNoIn '^' BitwiseANDExprNoIn
-                                        { result = BitXOrNode.new(val[0], val[2]) }
+                                        { result = s(:BitXOr, val[0], val[2]) }
   ;
 
   BitwiseXORExprNoBF:
     BitwiseANDExprNoBF
   | BitwiseXORExprNoBF '^' BitwiseANDExpr
-                                        { result = BitXOrNode.new(val[0], val[2]) }
+                                        { result = s(:BitXOr, val[0], val[2]) }
   ;
 
   BitwiseORExpr:
     BitwiseXORExpr
-  | BitwiseORExpr '|' BitwiseXORExpr    { result = BitOrNode.new(val[0], val[2]) }
+  | BitwiseORExpr '|' BitwiseXORExpr    { result = s(:BitOr, val[0], val[2]) }
   ;
 
   BitwiseORExprNoIn:
     BitwiseXORExprNoIn
   | BitwiseORExprNoIn '|' BitwiseXORExprNoIn
-                                        { result = BitOrNode.new(val[0], val[2]) }
+                                        { result = s(:BitOr, val[0], val[2]) }
   ;
 
   BitwiseORExprNoBF:
     BitwiseXORExprNoBF
   | BitwiseORExprNoBF '|' BitwiseXORExpr
-                                        { result = BitOrNode.new(val[0], val[2]) }
+                                        { result = s(:BitOr, val[0], val[2]) }
   ;
 
   LogicalANDExpr:
     BitwiseORExpr
-  | LogicalANDExpr AND BitwiseORExpr    { result = LogicalAndNode.new(val[0], val[2]) }
+  | LogicalANDExpr AND BitwiseORExpr    { result = s(:LogicalAnd, val[0], val[2]) }
   ;
 
   LogicalANDExprNoIn:
     BitwiseORExprNoIn
   | LogicalANDExprNoIn AND BitwiseORExprNoIn
-                                        { result = LogicalAndNode.new(val[0], val[2]) }
+                                        { result = s(:LogicalAnd, val[0], val[2]) }
   ;
 
   LogicalANDExprNoBF:
     BitwiseORExprNoBF
   | LogicalANDExprNoBF AND BitwiseORExpr
-                                        { result = LogicalAndNode.new(val[0], val[2]) }
+                                        { result = s(:LogicalAnd, val[0], val[2]) }
   ;
 
   LogicalORExpr:
     LogicalANDExpr
-  | LogicalORExpr OR LogicalANDExpr     { result = LogicalOrNode.new(val[0], val[2]) }
+  | LogicalORExpr OR LogicalANDExpr     { result = s(:LogicalOr, val[0], val[2]) }
   ;
 
   LogicalORExprNoIn:
     LogicalANDExprNoIn
   | LogicalORExprNoIn OR LogicalANDExprNoIn
-                                        { result = LogicalOrNode.new(val[0], val[2]) }
+                                        { result = s(:LogicalOr, val[0], val[2]) }
   ;
 
   LogicalORExprNoBF:
     LogicalANDExprNoBF
-  | LogicalORExprNoBF OR LogicalANDExpr { result = LogicalOrNode.new(val[0], val[2]) }
+  | LogicalORExprNoBF OR LogicalANDExpr { result = s(:LogicalOr, val[0], val[2]) }
   ;
 
   ConditionalExpr:
     LogicalORExpr
   | LogicalORExpr '?' AssignmentExpr ':' AssignmentExpr {
-      result = ConditionalNode.new(val[0], val[2], val[4])
+      result = s(:Conditional, val[0], val[2], val[4])
     }
   ;
 
   ConditionalExprNoIn:
     LogicalORExprNoIn
   | LogicalORExprNoIn '?' AssignmentExprNoIn ':' AssignmentExprNoIn {
-      result = ConditionalNode.new(val[0], val[2], val[4])
+      result = s(:Conditional, val[0], val[2], val[4])
     }
   ;
 
   ConditionalExprNoBF:
     LogicalORExprNoBF
   | LogicalORExprNoBF '?' AssignmentExpr ':' AssignmentExpr {
-      result = ConditionalNode.new(val[0], val[2], val[4])
+      result = s(:Conditional, val[0], val[2], val[4])
     }
   ;
 
   AssignmentExpr:
     ConditionalExpr
   | LeftHandSideExpr AssignmentOperator AssignmentExpr {
-      result = val[1].new(val.first, val.last)
+      result = s(val[1], val.first, val.last)
     }
   ;
 
   AssignmentExprNoIn:
     ConditionalExprNoIn
   | LeftHandSideExpr AssignmentOperator AssignmentExprNoIn {
-      result = val[1].new(val.first, val.last)
+      result = s(val[1], val.first, val.last)
     }
   ;
 
   AssignmentExprNoBF:
     ConditionalExprNoBF
   | LeftHandSideExprNoBF AssignmentOperator AssignmentExpr {
-      result = val[1].new(val.first, val.last)
+      result = s(val[1], val.first, val.last)
     }
   ;
 
   AssignmentOperator:
-    '='                                 { result = OpEqualNode }
-  | PLUSEQUAL                           { result = OpPlusEqualNode }
-  | MINUSEQUAL                          { result = OpMinusEqualNode }
-  | MULTEQUAL                           { result = OpMultiplyEqualNode }
-  | DIVEQUAL                            { result = OpDivideEqualNode }
-  | LSHIFTEQUAL                         { result = OpLShiftEqualNode }
-  | RSHIFTEQUAL                         { result = OpRShiftEqualNode }
-  | URSHIFTEQUAL                        { result = OpURShiftEqualNode }
-  | ANDEQUAL                            { result = OpAndEqualNode }
-  | XOREQUAL                            { result = OpXOrEqualNode }
-  | OREQUAL                             { result = OpOrEqualNode }
-  | MODEQUAL                            { result = OpModEqualNode }
+    '='                                 { result = :OpEqual }
+  | PLUSEQUAL                           { result = :OpPlusEqual }
+  | MINUSEQUAL                          { result = :OpMinusEqual }
+  | MULTEQUAL                           { result = :OpMultiplyEqual }
+  | DIVEQUAL                            { result = :OpDivideEqual }
+  | LSHIFTEQUAL                         { result = :OpLShiftEqual }
+  | RSHIFTEQUAL                         { result = :OpRShiftEqual }
+  | URSHIFTEQUAL                        { result = :OpURShiftEqual }
+  | ANDEQUAL                            { result = :OpAndEqual }
+  | XOREQUAL                            { result = :OpXOrEqual }
+  | OREQUAL                             { result = :OpOrEqual }
+  | MODEQUAL                            { result = :OpModEqual }
   ;
 
   Expr:
     AssignmentExpr
-  | Expr ',' AssignmentExpr             { result = CommaNode.new(val[0], val[2]) }
+  | Expr ',' AssignmentExpr             { result = s(:Comma,val[0], val[2]) }
   ;
 
   ExprNoIn:
     AssignmentExprNoIn
-  | ExprNoIn ',' AssignmentExprNoIn     { result = CommaNode.new(val[0], val[2]) }
+  | ExprNoIn ',' AssignmentExprNoIn     { result = s(:Comma, val[0], val[2]) }
   ;
 
   ExprNoBF:
     AssignmentExprNoBF
-  | ExprNoBF ',' AssignmentExpr       { result = CommaNode.new(val[0], val[2]) }
+  | ExprNoBF ',' AssignmentExpr       { result = s(:Comma, val[0], val[2]) }
   ;
 
 
   Block:
     '{' '}' {
-      result = BlockNode.new(SourceElementsNode.new([]))
+      result = s(:Block, nil)
       debug(result)
     }
   | '{' SourceElements '}' {
-      result = BlockNode.new(SourceElementsNode.new([val[1]].flatten))
+      result = s(:Block, combine(:SourceElements, val[1]) )
       debug(result)
     }
   ;
 
   VariableStatement:
     VAR VariableDeclarationList ';' {
-      result = VarStatementNode.new(val[1])
+      result = combine(:VarStatement, val[1])
       debug(result)
     }
   | VAR VariableDeclarationList error {
-      result = VarStatementNode.new(val[1])
+      result = combine(:VarStatement, val[1])
       debug(result)
-      yyerror unless allow_auto_semi?(val.last)
+      raise ParseError, "bad variable statement, #{val.to_s}" unless allow_auto_semi?(val.last)
     }
   ;
 
   VariableDeclarationList:
     VariableDeclaration                 { result = val }
   | VariableDeclarationList ',' VariableDeclaration {
-      result = [val.first, val.last].flatten
+      result = flatten_unless_sexp([val.first, val.last])
     }
   ;
 
   VariableDeclarationListNoIn:
     VariableDeclarationNoIn             { result = val }
   | VariableDeclarationListNoIn ',' VariableDeclarationNoIn {
-      result = [val.first, val.last].flatten
+      result = flatten_unless_sexp([val.first, val.last])
     }
   ;
 
   VariableDeclaration:
-    IDENT             { result = VarDeclNode.new(val.first, nil) }
-  | IDENT Initializer { result = VarDeclNode.new(val.first, val[1]) }
+    IDENT             { result = s(:VarDecl, val.first, nil) }
+  | IDENT Initializer { result = s(:VarDecl, val.first, val[1]) }
   ;
 
   VariableDeclarationNoIn:
-    IDENT                               { result = VarDeclNode.new(val[0],nil) }
-  | IDENT InitializerNoIn               { result = VarDeclNode.new(val[0], val[1]) }
+    IDENT                               { result = s(:VarDecl, val[0], nil) }
+  | IDENT InitializerNoIn               { result = s(:VarDecl, val[0], val[1]) }
   ;
 
   ConstStatement:
     CONST ConstDeclarationList ';' {
-      result = ConstStatementNode.new(val[1])
+      result = combine(:ConstStatement, val[1])
       debug(result)
     }
   | CONST ConstDeclarationList error {
-      result = ConstStatementNode.new(val[1])
+      result = combine(:ConstStatement, val[1])
       debug(result)
-      yyerror unless allow_auto_semi?(val.last)
+      raise ParseError, "bad const statement, #{val.to_s}" unless allow_auto_semi?(val.last)
     }
   ;
 
   ConstDeclarationList:
     ConstDeclaration                    { result = val }
   | ConstDeclarationList ',' ConstDeclaration {
-      result = [val.first, val.last].flatten
+      result = flatten_unless_sexp([val.first, val.last])
     }
   ;
 
   ConstDeclaration:
-    IDENT             { result = VarDeclNode.new(val[0], nil, true) }
-  | IDENT Initializer { result = VarDeclNode.new(val[0], val[1], true) }
+    IDENT             { result = s(:VarDecl, val[0], nil) } # true) }
+  | IDENT Initializer { result = s(:VarDecl, val[0], val[1]) } # true) }
   ;
 
   Initializer:
-    '=' AssignmentExpr                  { result = AssignExprNode.new(val[1]) }
+    '=' AssignmentExpr                  { result = s(:AssignExpr, val[1]) }
   ;
 
   InitializerNoIn:
-    '=' AssignmentExprNoIn              { result = AssignExprNode.new(val[1]) }
+    '=' AssignmentExprNoIn              { result = s(:AssignExpr, val[1]) }
   ;
 
   EmptyStatement:
-    ';' { result = EmptyStatementNode.new(val[0]) }
+    ';' { result = s(:EmptyStatement, val[0]) }
   ;
 
   ExprStatement:
     ExprNoBF ';' {
-      result = ExpressionStatementNode.new(val.first)
+      result = s(:ExpressionStatement, val.first)
       debug(result)
     }
   | ExprNoBF error {
-      result = ExpressionStatementNode.new(val.first)
+      result = s(:ExpressionStatement, val.first)
       debug(result)
-      yyerror unless allow_auto_semi?(val.last)
+      raise ParseError, "bad expr statement, #{val.to_s}" unless allow_auto_semi?(val.last)
     }
   ;
 
   IfStatement:
     IF '(' Expr ')' Statement =IF_WITHOUT_ELSE {
-      result = IfNode.new(val[2], val[4])
+      result = s(:If, val[2], val[4])
       debug(result)
     }
   | IF '(' Expr ')' Statement ELSE Statement {
-      result = IfNode.new(val[2], val[4], val[6])
+      result = s(:If, val[2], val[4], val[6])
       debug(result)
     }
   ;
 
   IterationStatement:
     DO Statement WHILE '(' Expr ')' ';' {
-      result = DoWhileNode.new(val[1], val[4])
+      result = s(:DoWhile, val[1], val[4])
       debug(result)
     }
   | DO Statement WHILE '(' Expr ')' error {
-      result = DoWhileNode.new(val[1], val[4])
+      result = s(:DoWhile, val[1], val[4])
       debug(result)
     } /* Always performs automatic semicolon insertion. */
   | WHILE '(' Expr ')' Statement {
-      result = WhileNode.new(val[2], val[4])
+      result = s(:While, val[2], val[4])
       debug(result)
     }
   | FOR '(' ExprNoInOpt ';' ExprOpt ';' ExprOpt ')' Statement {
-      result = ForNode.new(val[2], val[4], val[6], val[8])
+      result = s(:For, val[2], val[4], val[6], val[8])
       debug(result)
     }
   | FOR '(' VAR VariableDeclarationListNoIn ';' ExprOpt ';' ExprOpt ')' Statement
     {
-      result = ForNode.new(VarStatementNode.new(val[3]), val[5], val[7], val[9])
+      result = s(:For, s(:VarStatement, val[3]), val[5], val[7], val[9])
       debug(result)
     }
   | FOR '(' LeftHandSideExpr IN Expr ')' Statement {
-      result = ForInNode.new(val[2], val[4], val[6])
+      result = s(:ForIn, val[2], val[4], val[6])
       debug(result);
     }
   | FOR '(' VAR IDENT IN Expr ')' Statement {
-      result = ForInNode.new(
-        VarDeclNode.new(val[3], nil), val[5], val[7])
+      result = s(:ForIn, s(:VarDecl, val[3], nil), val[5], val[7])
       debug(result)
     }
   | FOR '(' VAR IDENT InitializerNoIn IN Expr ')' Statement {
-      result = ForInNode.new(
-        VarDeclNode.new(val[3], val[4]), val[6], val[8]
-      )
+      result = s(:ForIn, s(:VarDecl, val[3], val[4]), val[6], val[8])
       debug(result)
     }
   ;
@@ -656,205 +651,200 @@ rule
 
   ContinueStatement:
     CONTINUE ';' {
-      result = ContinueNode.new(nil)
+      result = s(:Continue, nil)
       debug(result)
     }
   | CONTINUE error {
-      result = ContinueNode.new(nil)
+      result = s(:Continue, nil)
       debug(result)
-      yyerror unless allow_auto_semi?(val[1])
+      raise ParseError, "bad continue statement, #{val.to_s}" unless allow_auto_semi?(val.last)
     }
   | CONTINUE IDENT ';' {
-      result = ContinueNode.new(val[1])
+      result = s(:Continue, val[1])
       debug(result)
     }
   | CONTINUE IDENT error {
-      result = ContinueNode.new(val[1])
+      result = s(:Continue, val[1])
       debug(result)
-      yyerror unless allow_auto_semi?(val[2])
+      raise ParseError, "bad continue statement, #{val.to_s}" unless allow_auto_semi?(val.last)
     }
   ;
 
   BreakStatement:
     BREAK ';' {
-      result = BreakNode.new(nil)
+      result = s(:Break, nil)
       debug(result)
     }
   | BREAK error {
-      result = BreakNode.new(nil)
+      result = s(:Break, nil)
       debug(result)
-      yyerror unless allow_auto_semi?(val[1])
+      raise ParseError, "bad break statement, #{val.to_s}" unless allow_auto_semi?(val.last)
     }
   | BREAK IDENT ';' {
-      result = BreakNode.new(val[1])
+      result = s(:Break, val[1])
       debug(result)
     }
   | BREAK IDENT error {
-      result = BreakNode.new(val[1])
+      result = s(:Break, val[1])
       debug(result)
-      yyerror unless allow_auto_semi?(val[2])
+      raise ParseError, "bad break statement, #{val.to_s}" unless allow_auto_semi?(val.last)
     }
   ;
 
   ReturnStatement:
     RETURN ';' {
-      result = ReturnNode.new(nil)
+      result = s(:Return, nil)
       debug(result)
     }
   | RETURN error {
-      result = ReturnNode.new(nil)
+      result = s(:Return, nil)
       debug(result)
-      yyerror unless allow_auto_semi?(val[1])
+      raise ParseError, "bad return statement, #{val.to_s}" unless allow_auto_semi?(val.last)
     }
   | RETURN Expr ';' {
-      result = ReturnNode.new(val[1])
+      result = s(:Return, val[1])
       debug(result)
     }
   | RETURN Expr error {
-      result = ReturnNode.new(val[1])
+      result = s(:Return, val[1])
       debug(result)
-      yyerror unless allow_auto_semi?(val[2])
+      raise ParseError, "bad return statement, #{val.to_s}" unless allow_auto_semi?(val.last)
     }
   ;
 
   WithStatement:
     WITH '(' Expr ')' Statement {
-      result = WithNode.new(val[2], val[4])
+      result = s(:With, val[2], val[4])
       debug(result)
     }
   ;
 
   SwitchStatement:
     SWITCH '(' Expr ')' CaseBlock {
-      result = SwitchNode.new(val[2], val[4])
+      result = s(:Switch, val[2], val[4])
       debug(result)
     }
   ;
 
   CaseBlock:
-    '{' CaseClausesOpt '}'              { result = CaseBlockNode.new(val[1]) }
-  | '{' CaseClausesOpt DefaultClause CaseClausesOpt '}' {
-      result = CaseBlockNode.new([val[1], val[2], val[3]].flatten)
-    }
+    '{' CaseClausesOpt '}'              { result = combine(:CaseBlock, flatten_unless_sexp([val[1]]) ) }
+  | '{' CaseClausesOpt DefaultClause CaseClausesOpt '}' { result = combine(:CaseBlock, flatten_unless_sexp([val[1], val[2], val[3]]) ) }
   ;
 
   CaseClausesOpt:
-    /* nothing */                       { result = [] }
+    /* nothing */                       { result = nil }
   | CaseClauses
   ;
 
   CaseClauses:
     CaseClause                          { result = val }
-  | CaseClauses CaseClause              { result = val.flatten }
+  | CaseClauses CaseClause              { result = flatten_unless_sexp(val) }
   ;
 
   CaseClause:
-    CASE Expr ':'                       { result = CaseClauseNode.new(val[1]) }
-  | CASE Expr ':' SourceElements        {
-      result = CaseClauseNode.new(val[1], SourceElementsNode.new([val[3]].flatten))
-    }
+    CASE Expr ':'                       { result = s(:CaseClause, val[1]) }
+  | CASE Expr ':' SourceElements        
+					{ result = s(:CaseClause, val[1], combine(:SourceElements, val[3]) ) }
   ;
 
   DefaultClause:
     DEFAULT ':'                         {
-      result = CaseClauseNode.new(nil, SourceElementsNode.new([]))
+      result = s(:CaseClause, nil, nil)
     }
   | DEFAULT ':' SourceElements          {
-      result = CaseClauseNode.new(nil, SourceElementsNode.new([val[2]].flatten))
+      result = s(:CaseClause, nil, combine(:SourceElements, val[2]) )
     }
   ;
 
   LabelledStatement:
-    IDENT ':' Statement { result = LabelNode.new(val[0], val[2]) }
+    IDENT ':' Statement { result = s(:Label, val[0], val[2]) }
   ;
 
   ThrowStatement:
     THROW Expr ';' {
-      result = ThrowNode.new(val[1])
+      result = s(:Throw, val[1])
       debug(result)
     }
   | THROW Expr error {
-      result = ThrowNode.new(val[1])
+      result = s(:Throw, val[1])
       debug(result)
-      yyerror unless allow_auto_semi?(val[2])
+      raise ParseError, "bad throw statement, #{val.to_s}" unless allow_auto_semi?(val.last)
     }
   ;
 
   TryStatement:
     TRY Block FINALLY Block {
-      result = TryNode.new(val[1], nil, nil, val[3])
+      result = s(:Try, val[1], nil, nil, val[3])
       debug(result)
     }
   | TRY Block CATCH '(' IDENT ')' Block {
-      result = TryNode.new(val[1], val[4], val[6])
+      result = s(:Try, val[1], val[4], val[6])
       debug(result)
     }
   | TRY Block CATCH '(' IDENT ')' Block FINALLY Block {
-      result = TryNode.new(val[1], val[4], val[6], val[8])
+      result = s(:Try, val[1], val[4], val[6], val[8])
       debug(result)
     }
   ;
 
   DebuggerStatement:
     DEBUGGER ';' {
-      result = EmptyStatementNode.new(val[0])
+      result = s(:EmptyStatement, val[0])
       debug(result)
     }
   | DEBUGGER error {
-      result = EmptyStatementNode.new(val[0])
+      result = s(:EmptyStatement, val[0])
       debug(result)
-      yyerror unless allow_auto_semi?(val[1])
+      raise ParseError, "bad debugger statement, #{val.to_s}" unless allow_auto_semi?(val.last)
     }
   ;
 
   FunctionDeclaration:
     FUNCTION IDENT '(' ')' '{' FunctionBody '}' {
-      result = FunctionDeclNode.new(val[1], val[5])
+      result = s(:FunctionDecl, val[1], val[5])
       debug(val[5])
     }
   | FUNCTION IDENT '(' FormalParameterList ')' '{' FunctionBody '}' {
-      result = FunctionDeclNode.new(val[1], val[6], val[3])
+      result = s(:FunctionDecl, val[1], val[6], val[3])
       debug(val[6])
     }
   ;
 
   FunctionExpr:
     FUNCTION '(' ')' '{' FunctionBody '}' {
-      result = FunctionExprNode.new(val[0], val[4])
+      result = s(:FunctionExpr, val[0], [], val[4])
       debug(val[4])
     }
   | FUNCTION '(' FormalParameterList ')' '{' FunctionBody '}' {
-      result = FunctionExprNode.new(val[0], val[5], val[2])
+      result = s(:FunctionExpr, val[0], val[2], val[5])
       debug(val[5])
     }
   | FUNCTION IDENT '(' ')' '{' FunctionBody '}' {
-      result = FunctionExprNode.new(val[1], val[5])
+      result = s(:FunctionExpr, val[1], [], val[5])
       debug(val[5])
     }
   | FUNCTION IDENT '(' FormalParameterList ')' '{' FunctionBody '}' {
-      result = FunctionExprNode.new(val[1], val[6], val[3])
+      result = s(:FunctionExpr, val[1], val[3], val[6])
       debug(val[6])
     }
   ;
 
   FormalParameterList:
-    IDENT                               { result = [ParameterNode.new(val[0])] }
+    IDENT                               { result = [s(:Parameter,val[0])] }
   | FormalParameterList ',' IDENT       {
-      result = [val.first, ParameterNode.new(val.last)].flatten
-    }
+      					  result = flatten_unless_sexp([val.first, s(:Parameter, val.last)])
+    					}
   ;
 
   FunctionBody:
-    /* not in spec */           { result = FunctionBodyNode.new(SourceElementsNode.new([])) }
-  | SourceElements              { result = FunctionBodyNode.new(SourceElementsNode.new([val[0]].flatten)) }
+    /* not in spec */           { result = s(:FunctionBody, nil) }
+  | SourceElements              { result = s(:FunctionBody, combine(:SoureElements, val[0]) ) }
   ;
 end
 
 ---- header
-  require "rkelly/nodes"
-
+  require "sexp"
 ---- inner
-  include RKelly::Nodes
 
   def allow_auto_semi?(error_token)
     error_token == false || error_token == '}' || @terminator
@@ -863,14 +853,38 @@ end
   def property_class_for(ident)
     case ident
     when 'get'
-      GetterPropertyNode
+      :GetterProperty
     when 'set'
-      SetterPropertyNode
+      :SetterProperty
     else
-      raise ParseError, "expected keyword 'get' or 'set' but saw #{ident}"
+      nil
     end
   end
 
   def debug(*args)
     logger.debug(*args) if logger
+  end
+
+  def flatten_unless_sexp(ary)
+    return ary unless ary.is_a?(Array) && !ary.is_a?(Sexp)
+    flattened = []
+    ary.each { |ar| 
+ 	sub = flatten_unless_sexp(ar)
+	if(sub.is_a?(Array) && !sub.is_a?(Sexp) )
+	  flattened += sub
+	else
+	  flattened.push(sub)
+	end
+    }    
+    flattened
+  end
+
+  def combine(sym, array_or_sexp)
+    if(!array_or_sexp.is_a?(Array))
+	raise ParseError, "tried to make an s-expression with a non array"
+    elsif(array_or_sexp.is_a?(Sexp))
+	s(sym, array_or_sexp)
+    else
+        Sexp.from_array([sym]+array_or_sexp)
+    end
   end

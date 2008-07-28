@@ -5,7 +5,7 @@ class JsProcessor < SexpProcessor
 
   def self.translate(str)
     require 'rkelly'
-    jstree = RKelly::Parser.new.parse(str).to_sexp
+    jstree = RKelly::Parser.new.parse(str)
     js = self.new.process(jstree)
     raise SexpProcessorError, "translation is the empty string" if js.empty? and !str.empty?
     js

@@ -18,6 +18,10 @@ class Sexp < Array
     super(args)
   end
 
+  def flatten(*args)
+    p "hello"
+    self
+  end
   ##
   # Creates a new Sexp from Array +a+
   def self.from_array(a)
@@ -252,4 +256,3 @@ end
 def s(*args)
   Sexp.new(*args)
 end
-

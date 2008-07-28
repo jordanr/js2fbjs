@@ -10,7 +10,7 @@ class FbjsRewriter < JsProcessor
   # Takes the JavaScript and possibly what tag it's found in.
   def self.translate(str, tag=nil)
     require 'rkelly'
-    fbjstree = RKelly::Parser.new.parse(str).to_sexp
+    fbjstree = RKelly::Parser.new.parse(str)
     fbjs = self.new(tag).process(fbjstree)
     raise SexpProcessorError, "translation is the empty string" if fbjs.empty? and !str.empty?
     fbjs

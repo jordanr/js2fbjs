@@ -10,7 +10,7 @@ module Js2Fbjs
   def translate_js_to_fbjs
       if request_is_for_a_facebook_canvas?
         response.body, errors = translate_fbml(response.body)
-        errors.each { |err| logger.warning "#{err}" }
+        errors.each { |err| $stderr.puts "#{err}" }
       end
   end
 

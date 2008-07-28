@@ -15,7 +15,7 @@ module RKelly
     def parse(javascript)
       @tokens = TOKENIZER.tokenize(javascript)
       @position = 0
-      SourceElementsNode.new([do_parse].flatten)
+      combine(:SourceElements, flatten_unless_sexp([do_parse]) )
     end
 
     private
@@ -26,7 +26,7 @@ module RKelly
         logger.error("error value: #{error_value}")
         logger.error("error stack: #{value_stack}")
       end
-      raise ParseError, "value: #{error_value}, stack: #{value_stack}" unless allow_auto_semi?(error_token)
+#      raise ParseError, "value: #{error_value}, stack: #{value_stack}" unless allow_auto_semi?(error_token)
     end
 
     def next_token
