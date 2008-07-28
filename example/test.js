@@ -1,2 +1,1 @@
-const foo;
-
+x, y, z = 3;

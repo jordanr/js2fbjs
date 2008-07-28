@@ -11,7 +11,6 @@ class Test::Unit::TestCase
     fbjs = fbjs.gsub(/\n/, ' ').gsub(/\s+/, ' ')
     expected = expected.gsub(/\n/, ' ').gsub(/\s+/, ' ')
     assert_equal(expected, fbjs)
-    puts "expected", expected, "fbjs", fbjs
   end
 
   def assert_js(expected, actual = nil)

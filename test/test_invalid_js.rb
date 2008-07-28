@@ -19,32 +19,16 @@ class InvalidJsTest < Test::Unit::TestCase
     assert_raises(ParseError) { assert_fbjs("var foo = { se a(b) { } };") }
   end
 
-  def test_weird_bitwise_not
-    assert_raises(ParseError) { assert_fbjs('~~10;') }
-  end
-
   def test_weird_logical_not
     assert_raises(ParseError) { assert_fbjs('!.foo;') }
-  end
-
-  def test_weird_unary_minus
-    assert_raises(ParseError) { assert_fbjs('-_0;') }
   end
 
   def test_weird_type_of
     assert_raises(ParseError) { assert_fbjs('typeof ++;') }
   end
 
-  def test_weird_unary_plus
-    assert_raises(ParseError) { assert_fbjs('+!10;') }
-  end
-
   def test_invalid_boolean_in_while
     assert_raises(ParseError) { assert_fbjs("while(+) { foo(); }") }
-  end
-
-  def test_invalid_boolean_in_switch
-    assert_raises(ParseError) { assert_fbjs("switch(_) { }") }
   end
 
   def test_invalid_in_switch_case
@@ -77,10 +61,6 @@ class InvalidJsTest < Test::Unit::TestCase
 
   def test_invalid_property
     assert_raises(ParseError) { assert_fbjs("var foo = { {bar: 10} };") }
-  end
-
-  def test_invalid_bracket_access
-    assert_raises(ParseError) { assert_fbjs("var foo = foo.bar[[10]];") }
   end
 
   def test_invalid_new_exprs

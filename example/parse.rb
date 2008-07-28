@@ -11,5 +11,5 @@ jsfile = File.open(filename).read
 
 p Js2Fbjs::Parser.new.parse(jsfile)
 
-puts JsProcessor.translate(jsfile)
+puts Js2Fbjs::JsProcessor.translate(jsfile)
 

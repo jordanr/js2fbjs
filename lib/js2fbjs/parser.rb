@@ -11,7 +11,7 @@ module Js2Fbjs
       @terminator = false
     end
 
-    # Parse +javascript+ and return an AST
+    # Parse +javascript+ and return S-expressions
     def parse(javascript)
       @tokens = TOKENIZER.tokenize(javascript)
       @position = 0
@@ -20,12 +20,12 @@ module Js2Fbjs
 
     private
     def on_error(error_token_id, error_value, value_stack)
-      error_token = token_to_str(error_token_id)
-      if logger
-        logger.error(token_to_str(error_token_id))
-        logger.error("error value: #{error_value}")
-        logger.error("error stack: #{value_stack}")
+      if false# true
+        $stderr.puts(token_to_str(error_token_id))
+        $stderr.puts("error value: #{error_value}")
+        $stderr.puts("error stack: #{value_stack}")
       end
+      raise ParseError, "on #{error_value} with stack #{value_stack.to_s}"
     end
 
     def next_token
@@ -41,13 +41,6 @@ module Js2Fbjs
           @terminator = true if n_token[1] =~ /[\r\n]/
         end
       end while([:COMMENT, :S].include?(n_token[0]))
-
-      if @terminator &&
-          ((@prev_token && %w[continue break return throw].include?(@prev_token[1])) ||
-           (n_token && %w[++ --].include?(n_token[1])))
-        @position -= 1
-        return (@prev_token = [';', ';'])
-      end
 
       @prev_token = n_token
     end
