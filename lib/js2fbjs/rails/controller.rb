@@ -4,14 +4,13 @@ require 'js2fbjs'
 # an include. 
 module Js2Fbjs
   module Rails
-    module Controller
-      private
-      ONS = Regexp.new("onclick|onsubmit") # add more
-  
+    module Controller  
       def self.included(controller)
         controller.extend(ClassMethods)
       end
 
+      private
+      ONS = Regexp.new("onclick|onsubmit") # add more
 
       # use as-> after_filter :translate_js_to_fbjs, options
       def translate_js_to_fbjs

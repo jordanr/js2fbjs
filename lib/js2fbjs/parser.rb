@@ -26,10 +26,10 @@ module Js2Fbjs
         logger.error("error value: #{error_value}")
         logger.error("error stack: #{value_stack}")
       end
-#      raise ParseError, "value: #{error_value}, stack: #{value_stack}" unless allow_auto_semi?(error_token)
     end
 
     def next_token
+      @terminator = false
       begin
         return [false, false] if @position >= @tokens.length
         n_token = @tokens[@position]
@@ -38,10 +38,18 @@ module Js2Fbjs
         when :COMMENT
           @terminator = true if n_token[1] =~ /^\/\//
         when :S
-          @terminator = true if n_token[1] =~ /^[\r\n]/
+          @terminator = true if n_token[1] =~ /[\r\n]/
         end
       end while([:COMMENT, :S].include?(n_token[0]))
-      n_token
+
+      if @terminator &&
+          ((@prev_token && %w[continue break return throw].include?(@prev_token[1])) ||
+           (n_token && %w[++ --].include?(n_token[1])))
+        @position -= 1
+        return (@prev_token = [';', ';'])
+      end
+
+      @prev_token = n_token
     end
   end
 end
