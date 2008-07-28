@@ -7,14 +7,14 @@
 require 'racc/parser'
 
 
-  require "sexp"
+  require "js2fbjs/sexp"
 
-module RKelly
+module Js2Fbjs
 
   class GeneratedParser < Racc::Parser
 
-module_eval <<'..end lib/parser.y modeval..id511370b2c8', 'lib/parser.y', 848
-
+module_eval <<'..end lib/parser.y modeval..idb0b19018f5', 'lib/parser.y', 848
+  include SexpUtility
   def allow_auto_semi?(error_token)
     error_token == false || error_token == '}' || @terminator
   end
@@ -57,7 +57,7 @@ module_eval <<'..end lib/parser.y modeval..id511370b2c8', 'lib/parser.y', 848
         Sexp.from_array([sym]+array_or_sexp)
     end
   end
-..end lib/parser.y modeval..id511370b2c8
+..end lib/parser.y modeval..idb0b19018f5
 
 ##### racc 1.4.5 generates ###
 
@@ -3291,4 +3291,4 @@ module_eval <<'.,.,', 'lib/parser.y', 840
 
   end   # class GeneratedParser
 
-end   # module RKelly
+end   # module Js2Fbjs

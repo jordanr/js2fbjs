@@ -3,11 +3,11 @@ require 'hoe'
 
 $LOAD_PATH.unshift File.join(File.dirname(__FILE__), "lib")
 
-require 'rkelly/constants'
+require 'js2fbjs/constants'
 
-GENERATED_PARSER = "lib/rkelly/generated_parser.rb"
+GENERATED_PARSER = "lib/js2fbjs/generated_parser.rb"
 
-Hoe.new('js2fbjs', RKelly::VERSION) do |p|
+Hoe.new('js2fbjs', Js2Fbjs::VERSION) do |p|
   p.rubyforge_name  = 'js2fbjs'
   p.author          = 'Richard Jordan'
   p.email           = 'none'

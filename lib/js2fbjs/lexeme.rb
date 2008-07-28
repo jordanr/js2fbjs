@@ -1,6 +1,6 @@
-require 'rkelly/token'
+require 'js2fbjs/token'
 
-module RKelly
+module Js2Fbjs
   class Lexeme
     attr_reader :name, :pattern
     def initialize(name, pattern, &block)

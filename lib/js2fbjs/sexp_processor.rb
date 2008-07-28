@@ -1,7 +1,9 @@
 # Courtesy of the ParseTree Gem
 $TESTING = false unless defined? $TESTING
 
-require 'sexp'
+require 'js2fbjs/sexp'
+
+module Js2Fbjs
 
 class Object
 
@@ -350,3 +352,4 @@ class SexpProcessor
   end
 end
 
+end

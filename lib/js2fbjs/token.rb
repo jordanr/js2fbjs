@@ -1,4 +1,4 @@
-module RKelly
+module Js2Fbjs
   class Token
     attr_accessor :name, :value, :transformer
     def initialize(name, value, &transformer)

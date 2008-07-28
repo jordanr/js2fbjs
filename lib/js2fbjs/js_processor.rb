@@ -1,11 +1,13 @@
-require 'sexp_processor'
+require 'js2fbjs/sexp_processor'
+require 'js2fbjs'
 
 # Turns S-expressions into JavaScript.
+module Js2Fbjs
+
 class JsProcessor < SexpProcessor
 
   def self.translate(str)
-    require 'rkelly'
-    jstree = RKelly::Parser.new.parse(str)
+    jstree = Js2Fbjs::Parser.new.parse(str)
     js = self.new.process(jstree)
     raise SexpProcessorError, "translation is the empty string" if js.empty? and !str.empty?
     js
@@ -278,3 +280,4 @@ class JsProcessor < SexpProcessor
 
 end
 
+end

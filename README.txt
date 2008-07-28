@@ -21,12 +21,15 @@ parser.  You'll need Racc to rebuild the parser.  Easy to install from:
 As a Rails plugin by:
   script/plugin install git://github.com/jordanr/js2fbjs.git
 
+You must also have Facebooker:
+  script/plugin install git://github.com/mmangino/facebooker.git
+
 == Example
   class SampleController < ApplicationController
-    after_filter :translate_js_to_fbjs
+    translate_js_to_fbjs
     
     def index
-      render :text=>"<script>confirm('Are you sure')</script>"
+      render :text=>"testing ... <script>confirm('Are you sure')</script>"
     end
   end
 

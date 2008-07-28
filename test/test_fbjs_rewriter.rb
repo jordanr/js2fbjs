@@ -9,12 +9,12 @@ class FbjsRewriterTest < Test::Unit::TestCase
     assert_raises(SexpProcessorError) { assert_fbjs("var __obj = this;var __dlg = new Dialog().showChoice(") }
   end
 
-  FbjsRewriter::GETTERS.each do |getter|
+  Js2Fbjs::FbjsRewriter::GETTERS.each do |getter|
     define_method(:"test_get_for_#{getter}") do
       assert_fbjs("this.get#{getter[0,1].upcase+getter[1,getter.length]}();", "this.#{getter};")
     end
   end
-  FbjsRewriter::SETTERS.each do |setter|
+  Js2Fbjs::FbjsRewriter::SETTERS.each do |setter|
     define_method(:"test_set_for_#{setter}") do
       assert_fbjs("this.set#{setter[0,1].upcase+setter[1,setter.length]}('blue crabs');", "this.#{setter} = 'blue crabs';")
     end

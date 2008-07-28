@@ -1,4 +1,6 @@
-require 'js_processor'
+require 'js2fbjs/js_processor'
+require 'js2fbjs/sexp'
+module Js2Fbjs
 
 # Rewrites JavaScript to be OK for Facebook.  Handles,
 # * confirm("...") to new Dialog().showChoice(...).onclick= ...
@@ -6,11 +8,10 @@ require 'js_processor'
 # * setAttribute => setWidth, setAction, ...
 # * style.attribute => setStyle("attribute",...) or getStyle("attribute")
 class FbjsRewriter < JsProcessor
-
+  include SexpUtility
   # Takes the JavaScript and possibly what tag it's found in.
   def self.translate(str, tag=nil)
-    require 'rkelly'
-    fbjstree = RKelly::Parser.new.parse(str)
+    fbjstree = Js2Fbjs::Parser.new.parse(str)
     fbjs = self.new(tag).process(fbjstree)
     raise SexpProcessorError, "translation is the empty string" if fbjs.empty? and !str.empty?
     fbjs
@@ -281,3 +282,4 @@ class FbjsRewriter < JsProcessor
   end
 end
 
+end

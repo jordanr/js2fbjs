@@ -14,7 +14,7 @@ class RailsUrlHelperTest < Test::Unit::TestCase
   class UrlHelperController < ActionController::Base
     include ActionView::Helpers::UrlHelper
     include ActionView::Helpers::TagHelper
-    include Js2Fbjs
+    include Js2Fbjs::Rails::Controller
   
     after_filter :translate_js_to_fbjs
 

@@ -2,6 +2,8 @@
 
 $TESTING ||= false # unless defined $TESTING
 
+module Js2Fbjs
+
 ##
 # Sexps are the basic storage mechanism of SexpProcessor.  Sexps have
 # a +type+ (to be renamed +node_type+) which is the first element of
@@ -251,8 +253,12 @@ module SexpMatchSpecials
   def ANY(); return SexpAny.new; end
 end
 
-##
-# This is just a stupid shortcut to make indentation much cleaner.
-def s(*args)
-  Sexp.new(*args)
+module SexpUtility
+  ##
+  # This is just a stupid shortcut to make indentation much cleaner.
+  def s(*args)
+    Sexp.new(*args)
+  end
+end
+
 end

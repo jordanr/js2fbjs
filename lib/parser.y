@@ -1,6 +1,6 @@
 /* vim: set filetype=racc : */
 
-class RKelly::GeneratedParser
+class Js2Fbjs::GeneratedParser
 
 /* Literals */
 token NULL TRUE FALSE
@@ -843,9 +843,9 @@ rule
 end
 
 ---- header
-  require "sexp"
+  require "js2fbjs/sexp"
 ---- inner
-
+  include SexpUtility
   def allow_auto_semi?(error_token)
     error_token == false || error_token == '}' || @terminator
   end

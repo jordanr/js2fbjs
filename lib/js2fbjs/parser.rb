@@ -1,8 +1,8 @@
-require 'rkelly/tokenizer'
-require 'rkelly/generated_parser'
+require 'js2fbjs/tokenizer'
+require 'js2fbjs/generated_parser'
 
-module RKelly
-  class Parser < RKelly::GeneratedParser
+module Js2Fbjs
+  class Parser < Js2Fbjs::GeneratedParser
     TOKENIZER = Tokenizer.new
     attr_accessor :logger
     def initialize

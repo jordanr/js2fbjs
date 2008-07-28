@@ -1,6 +1,6 @@
-require 'rkelly/lexeme'
+require 'js2fbjs/lexeme'
 
-module RKelly
+module Js2Fbjs
   class Tokenizer
     KEYWORDS = %w{
       break case catch continue default delete do else finally for function
