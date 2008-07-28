@@ -1,5 +1,0 @@
-July 25, 2008
-* translate <script> ... </script>	[x]
-* allow whitespace  			[x]
-* better error messages			[ ]
-* strict parsing option			[ ]

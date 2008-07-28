@@ -13,7 +13,7 @@ module RKelly
 
   class GeneratedParser < Racc::Parser
 
-module_eval <<'..end lib/parser.y modeval..idf3b206da5e', 'lib/parser.y', 848
+module_eval <<'..end lib/parser.y modeval..id511370b2c8', 'lib/parser.y', 848
 
   def allow_auto_semi?(error_token)
     error_token == false || error_token == '}' || @terminator
@@ -57,7 +57,7 @@ module_eval <<'..end lib/parser.y modeval..idf3b206da5e', 'lib/parser.y', 848
         Sexp.from_array([sym]+array_or_sexp)
     end
   end
-..end lib/parser.y modeval..idf3b206da5e
+..end lib/parser.y modeval..id511370b2c8
 
 ##### racc 1.4.5 generates ###
 
