@@ -53,7 +53,7 @@ class RailsUrlHelperTest < Test::Unit::TestCase
     def script_tagged_javascript
       render :text => "<script>confirm(\'#{CONTENT}\');</script>"
     end
-
+      
     private
     def rescue_action(e) raise e end 
 

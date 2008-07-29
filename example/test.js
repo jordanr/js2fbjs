@@ -1,1 +1,5 @@
-x, y, z = 3;
+    switch(a) {
+    case 1:
+      foo();
+      break;
+    }

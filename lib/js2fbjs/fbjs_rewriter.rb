@@ -10,8 +10,8 @@ module Js2Fbjs
 class FbjsRewriter < JsProcessor
   include SexpUtility
   # Takes the JavaScript and possibly what tag it's found in.
-  def self.translate(str, tag=nil)
-    fbjstree = Js2Fbjs::Parser.new.parse(str)
+  def self.translate(str, tag=nil, strict = false)
+    fbjstree = Js2Fbjs::Parser.new(strict).parse(str)
     fbjs = self.new(tag).process(fbjstree)
     raise SexpProcessorError, "translation is the empty string" if fbjs.empty? and !str.empty?
     fbjs

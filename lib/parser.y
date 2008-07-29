@@ -39,10 +39,15 @@ prechigh
 preclow
 
 rule
+  SourceElements:
+    /* nothing */		    { result = nil }
+  | SourceElementList		    { result = combine(:SourceElements, flatten_unless_sexp(val) ) }
+  ;
 
-  SourceElements
-    SourceElement
-  | SourceElements SourceElement { result = flatten_unless_sexp(val) }
+  SourceElementList:
+    SourceElement		   
+  | SourceElementList SourceElement { result = flatten_unless_sexp(val) }
+  ;
 
   SourceElement:
     FunctionDeclaration
@@ -78,9 +83,7 @@ rule
   ;
 
   Property:
-    IDENT ':' AssignmentExpr {
-      result = s(:Property, val[0], val[2])
-    }
+    IDENT ':' AssignmentExpr  { result = s(:Property, val[0], val[2]) }
   | STRING ':' AssignmentExpr { result = s(:Property, val.first, val.last) }
   | NUMBER ':' AssignmentExpr { result = s(:Property, val.first, val.last) }
   | IDENT IDENT '(' ')' '{' FunctionBody '}'  {
@@ -498,12 +501,8 @@ rule
 
 
   Block:
-    '{' '}' {
-      result = s(:Block, nil)
-      debug(result)
-    }
-  | '{' SourceElements '}' {
-      result = s(:Block, combine(:SourceElements, val[1]) )
+    '{' SourceElements '}' {
+      result = s(:Block, val[1])
       debug(result)
     }
   ;
@@ -742,17 +741,13 @@ rule
   ;
 
   CaseClause:
-    CASE Expr ':'                       { result = s(:CaseClause, val[1]) }
-  | CASE Expr ':' SourceElements        
-					{ result = s(:CaseClause, val[1], combine(:SourceElements, val[3]) ) }
+    CASE Expr ':' SourceElements        
+					{ result = s(:CaseClause, val[1], val[3] ) }
   ;
 
   DefaultClause:
-    DEFAULT ':'                         {
-      result = s(:CaseClause, nil, nil)
-    }
-  | DEFAULT ':' SourceElements          {
-      result = s(:CaseClause, nil, combine(:SourceElements, val[2]) )
+    DEFAULT ':' SourceElements          {
+      result = s(:CaseClause, nil, val[2])
     }
   ;
 
@@ -837,8 +832,7 @@ rule
   ;
 
   FunctionBody:
-    /* not in spec */           { result = s(:FunctionBody, nil) }
-  | SourceElements              { result = s(:FunctionBody, combine(:SoureElements, val[0]) ) }
+    SourceElements              { result = s(:FunctionBody, val[0]) }
   ;
 end
 

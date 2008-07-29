@@ -6,8 +6,8 @@ module Js2Fbjs
 
 class JsProcessor < SexpProcessor
 
-  def self.translate(str)
-    jstree = Js2Fbjs::Parser.new.parse(str)
+  def self.translate(str, strict = false)
+    jstree = Js2Fbjs::Parser.new(strict).parse(str)
     js = self.new.process(jstree)
     raise SexpProcessorError, "translation is the empty string" if js.empty? and !str.empty?
     js

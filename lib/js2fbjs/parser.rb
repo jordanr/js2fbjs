@@ -5,10 +5,12 @@ module Js2Fbjs
   class Parser < Js2Fbjs::GeneratedParser
     TOKENIZER = Tokenizer.new
     attr_accessor :logger
-    def initialize
+    attr_accessor :strict
+    def initialize(strict= false)
       @tokens = []
       @logger = nil
       @terminator = false
+      @strict = strict
     end
 
     # Parse +javascript+ and return S-expressions
@@ -25,7 +27,7 @@ module Js2Fbjs
         $stderr.puts("error value: #{error_value}")
         $stderr.puts("error stack: #{value_stack}")
       end
-      raise ParseError, "on #{error_value} with stack #{value_stack.to_s}"
+      raise ParseError, "on #{error_value} with stack #{value_stack.to_s}" if(@strict)
     end
 
     def next_token

@@ -6,11 +6,15 @@ $: << File.join(File.dirname(__FILE__), '..', 'lib')
 require 'js2fbjs'
 
 class Test::Unit::TestCase
-  def assert_fbjs(expected, actual = nil, tag = nil)
-    fbjs = Js2Fbjs::FbjsRewriter.translate(actual || expected, tag)
+  def assert_fbjs(expected, actual = nil, tag = nil, strict = false)
+    fbjs = Js2Fbjs::FbjsRewriter.translate(actual || expected, tag, strict)
     fbjs = fbjs.gsub(/\n/, ' ').gsub(/\s+/, ' ')
     expected = expected.gsub(/\n/, ' ').gsub(/\s+/, ' ')
     assert_equal(expected, fbjs)
+  end
+
+  def assert_strict_fbjs(expected)
+    assert_fbjs(expected, nil, nil, true)
   end
 
   def assert_js(expected, actual = nil)

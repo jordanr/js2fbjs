@@ -12,6 +12,13 @@ module Js2Fbjs
       private
       ONS = Regexp.new("onclick|onsubmit") # add more
 
+      def strictly_translate_js_to_fbjs
+        if request_is_for_a_facebook_canvas?
+          response.body, errors = translate_fbml(response.body, true)
+          errors.each { |err| $stderr.puts "#{err}" }
+        end
+      end
+
       # use as-> after_filter :translate_js_to_fbjs, options
       def translate_js_to_fbjs
         if request_is_for_a_facebook_canvas?
@@ -21,14 +28,14 @@ module Js2Fbjs
       end
 
       # really needs some refactoring
-      def translate_fbml(fbml)
+      def translate_fbml(fbml, strict = false)
         errors = []
         dbl_quote_matches = fbml.scan(/<([a-zA-Z]+)([^>]*#{ONS}\s*=\s*)(")([^">]*)(")([^>]*)>/)
         sing_quote_matches= fbml.scan(/<([a-zA-Z]+)([^>]*#{ONS}\s*=\s*)(')([^'>]*)(')([^>]*)>/)
         (dbl_quote_matches+sing_quote_matches).each { |match|
  	  next if(match.first.nil?) # hmm, break probably too, meaning no javascript on page
   	  begin 
-	    js = FbjsRewriter.translate(match[3], match[0]) # js, tag
+	    js = FbjsRewriter.translate(match[3], match[0], strict) # js, tag
 	  rescue
 	    errors.push("translation failed for \"#{match[3]}\" inside \"#{match[0]}\" tag, #{$!}")
 	    next;
@@ -43,7 +50,7 @@ module Js2Fbjs
         (script_tag_matches).each { |match|
  	  next if(match.first.nil?) # hmm, break probably too, meaning no javascript on page
   	  begin 
-	    js = FbjsRewriter.translate(match[0]) # all js
+	    js = FbjsRewriter.translate(match[0], nil, strict) # all js
 	  rescue
 	    errors.push("translation failed for \"#{match[0]}\" #{$!}")
 	    next;
@@ -62,6 +69,14 @@ module Js2Fbjs
         # before_filter and after_filter accept.
         def translate_js_to_fbjs(options = {})
           after_filter :translate_js_to_fbjs, options
+        end
+
+        #
+        # Creates a filter which translates
+        # Accepts the same optional options hash which
+        # before_filter and after_filter accept.
+        def strictly_translate_js_to_fbjs(options = {})
+          after_filter :strictly_translate_js_to_fbjs, options
         end
       end
     end
