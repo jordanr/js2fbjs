@@ -13,7 +13,7 @@ module Js2Fbjs
 
   class GeneratedParser < Racc::Parser
 
-module_eval <<'..end lib/parser.y modeval..id00357f29fe', 'lib/parser.y', 842
+module_eval <<'..end lib/parser.y modeval..id590d5ddec6', 'lib/parser.y', 842
   include SexpUtility
   def allow_auto_semi?(error_token)
     error_token == false || error_token == '}' || @terminator
@@ -57,7 +57,7 @@ module_eval <<'..end lib/parser.y modeval..id00357f29fe', 'lib/parser.y', 842
         Sexp.from_array([sym]+array_or_sexp)
     end
   end
-..end lib/parser.y modeval..id00357f29fe
+..end lib/parser.y modeval..id590d5ddec6
 
 ##### racc 1.4.5 generates ###
 
@@ -1460,7 +1460,7 @@ Racc_token_to_s_table = [
 'CaseClauses',
 'CaseClause']
 
-Racc_debug_parser = true
+Racc_debug_parser = false
 
 ##### racc system variables end #####
 
@@ -1468,7 +1468,7 @@ Racc_debug_parser = true
 
 module_eval <<'.,.,', 'lib/parser.y', 42
   def _reduce_1( val, _values, result )
- result = nil
+ result = s(:SourceElements, nil)
    result
   end
 .,.,
@@ -1939,14 +1939,14 @@ module_eval <<'.,.,', 'lib/parser.y', 221
 
 module_eval <<'.,.,', 'lib/parser.y', 222
   def _reduce_92( val, _values, result )
- result = s(:Prefix, val[1], '++')
+ result = s(:Prefix, '++', val[1])
    result
   end
 .,.,
 
 module_eval <<'.,.,', 'lib/parser.y', 225
   def _reduce_93( val, _values, result )
- result = s(:Prefix, val[1], '--')
+ result = s(:Prefix, '--', val[1])
    result
   end
 .,.,

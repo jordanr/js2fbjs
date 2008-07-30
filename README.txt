@@ -45,4 +45,4 @@ You must also have Facebooker:
   http://idontsmoke.co.uk/2005/rbnarcissus/
   
 == License
-This library is distributed under the GPL.  Please see the LICENSE[link://files/LICENSE_txt.html] file.
+This library is distributed under the GPL.  Please see the LICENSE file.

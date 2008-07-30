@@ -40,7 +40,7 @@ preclow
 
 rule
   SourceElements:
-    /* nothing */		    { result = nil }
+    /* nothing */		    { result = s(:SourceElements, nil) }
   | SourceElementList		    { result = combine(:SourceElements, flatten_unless_sexp(val) ) }
   ;
 
@@ -220,10 +220,10 @@ rule
     DELETE UnaryExpr     { result = s(:Delete, val[1]) }
   | VOID UnaryExpr       { result = s(:Void, val[1]) }
   | TYPEOF UnaryExpr          { result = s(:TypeOf, val[1]) }
-  | PLUSPLUS UnaryExpr        { result = s(:Prefix, val[1], '++') }
+  | PLUSPLUS UnaryExpr        { result = s(:Prefix, '++', val[1]) }
   /* FIXME: Not sure when this can ever happen
   | AUTOPLUSPLUS UnaryExpr    { result = makePrefixNode($2, OpPlusPlus); } */
-  | MINUSMINUS UnaryExpr      { result = s(:Prefix, val[1], '--') }
+  | MINUSMINUS UnaryExpr      { result = s(:Prefix, '--', val[1]) }
   /* FIXME: Not sure when this can ever happen
   | AUTOMINUSMINUS UnaryExpr  { result = makePrefixNode($2, OpMinusMinus); } */
   | '+' UnaryExpr             { result = s(:UnaryPlus, val[1]) }

@@ -16,11 +16,11 @@ class AutomaticSemicolonInsertionTest < Test::Unit::TestCase
   end
 
   def test_insertion_before_plus_plus
-      assert_fbjs("a = b;++c;", "a = b\n++c")
+      assert_fbjs("a = b; ++c;", "a = b\n++c")
   end
 
   def test_insertion_before_minus_minus
-      assert_fbjs("a=b;--c;","a = b\n--c")
+      assert_fbjs("a = b; --c;","a = b\n--c")
   end
 
   def test_insertion_after_continue
@@ -36,14 +36,15 @@ class AutomaticSemicolonInsertionTest < Test::Unit::TestCase
   end
 
   def test_insertion_after_throw
-    assert_fbjs("throw foo;", "throw\nfoo") # nil
+    assert_raises(Js2Fbjs::SexpProcessorError) { assert_fbjs("throw\nfoo") }
   end
 
   def test_no_empty_statement_insertion
-    assert_fbjs("if (a > b) else c = d;", "if (a > b)\nelse c = d") # nil
+    assert_raises(Js2Fbjs::SexpProcessorError) { assert_fbjs("if (a > b)\nelse c = d") }
   end
 
   def test_no_for_insertion
-    assert_fbjs("for (a;b) {}", "for (a;b\n){}") #nil
+    assert_raises(Js2Fbjs::SexpProcessorError) { assert_fbjs("for (a;b\n){}") }
   end
 end
+

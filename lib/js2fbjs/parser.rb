@@ -17,7 +17,7 @@ module Js2Fbjs
     def parse(javascript)
       @tokens = TOKENIZER.tokenize(javascript)
       @position = 0
-      combine(:SourceElements, flatten_unless_sexp([do_parse]) )
+      do_parse
     end
 
     private
@@ -43,6 +43,13 @@ module Js2Fbjs
           @terminator = true if n_token[1] =~ /[\r\n]/
         end
       end while([:COMMENT, :S].include?(n_token[0]))
+
+      if @terminator &&
+          ((@prev_token && %w[continue break return throw].include?(@prev_token[1])) ||
+           (n_token && %w[++ --].include?(n_token[1])))
+        @position -= 1
+        return (@prev_token = [';', ';'])
+      end
 
       @prev_token = n_token
     end
