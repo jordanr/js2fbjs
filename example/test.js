@@ -1,2 +1,3 @@
-a = b
-++c
+a = function(a, b, c) { };
+
+hello(wha, ff, s);

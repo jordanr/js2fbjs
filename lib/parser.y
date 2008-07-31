@@ -86,12 +86,7 @@ rule
     IDENT ':' AssignmentExpr  { result = s(:Property, val[0], val[2]) }
   | STRING ':' AssignmentExpr { result = s(:Property, val.first, val.last) }
   | NUMBER ':' AssignmentExpr { result = s(:Property, val.first, val.last) }
-  | IDENT IDENT '(' ')' '{' FunctionBody '}'  {
-      klass = property_class_for(val.first)
-      raise ParseError, "expected keyword 'get' or 'set' but saw #{val.first}" unless klass
-      result = s(klass, val[1], s(:FunctionExpr, nil, [], val[5]))
-    }
-  | IDENT IDENT '(' FormalParameterList ')' '{' FunctionBody '}' {
+  | IDENT IDENT '(' FormalParameters ')' '{' FunctionBody '}' {
       klass = property_class_for(val.first)
       raise ParseError, "expected keyword 'get' or 'set' but saw #{val.first}" unless klass
       result = s(klass, val[1], s(:FunctionExpr, nil, val[3], val[6]))
@@ -795,44 +790,36 @@ rule
   ;
 
   FunctionDeclaration:
-    FUNCTION IDENT '(' ')' '{' FunctionBody '}' {
-      result = s(:FunctionDecl, val[1], val[5])
-      debug(val[5])
-    }
-  | FUNCTION IDENT '(' FormalParameterList ')' '{' FunctionBody '}' {
+    FUNCTION IDENT '(' FormalParameters ')' '{' FunctionBody '}' {
       result = s(:FunctionDecl, val[1], val[6], val[3])
       debug(val[6])
     }
   ;
 
   FunctionExpr:
-    FUNCTION '(' ')' '{' FunctionBody '}' {
-      result = s(:FunctionExpr, val[0], [], val[4])
-      debug(val[4])
-    }
-  | FUNCTION '(' FormalParameterList ')' '{' FunctionBody '}' {
+    FUNCTION '(' FormalParameters ')' '{' FunctionBody '}' {
       result = s(:FunctionExpr, val[0], val[2], val[5])
       debug(val[5])
     }
-  | FUNCTION IDENT '(' ')' '{' FunctionBody '}' {
-      result = s(:FunctionExpr, val[1], [], val[5])
-      debug(val[5])
-    }
-  | FUNCTION IDENT '(' FormalParameterList ')' '{' FunctionBody '}' {
+  | FUNCTION IDENT '(' FormalParameters ')' '{' FunctionBody '}' {
       result = s(:FunctionExpr, val[1], val[3], val[6])
       debug(val[6])
     }
   ;
 
+  FormalParameters:
+    /* nothing */			{ result = s(:Parameters, nil) }
+  | FormalParameterList			{ result = combine(:Parameters, flatten_unless_sexp(val)) }
+
   FormalParameterList:
-    IDENT                               { result = [s(:Parameter,val[0])] }
+    IDENT                               { result = val[0] }
   | FormalParameterList ',' IDENT       {
-      					  result = flatten_unless_sexp([val.first, s(:Parameter, val.last)])
+      					  result = flatten_unless_sexp([val.first, val.last])
     					}
   ;
 
   FunctionBody:
-    SourceElements              { result = s(:FunctionBody, val[0]) }
+    SourceElements             		{ result = s(:FunctionBody, val[0]) }
   ;
 end
 

@@ -39,6 +39,13 @@ class JsProcessor < SexpProcessor
 	exp.clear
 	res.to_s
       end
+
+      def process_Parameters(exp)
+	res = exp.join(', ')
+	exp.clear
+	res.to_s
+      end
+
       def process_Array(exp)
         res = "[#{exp.map { |x| x ? process(x) : '' }.join(', ')}]"
 	exp.clear
@@ -76,7 +83,7 @@ class JsProcessor < SexpProcessor
     ##### specials
       def process_FunctionDecl(exp)
         "#{indent}function #{exp.shift}(" +
-          "#{exp.shift.map { |x| process(x) }.join(', ')})" +
+          "#{process(exp.shift)})" +
           "#{process(exp.shift)}"
       end
 
@@ -99,7 +106,7 @@ class JsProcessor < SexpProcessor
 
       def process_FunctionExpr(exp)
 	name = exp.shift
-        "#{name}(#{exp.shift.map { |x| process(x) }.join(', ')}) " +
+        "#{name}(#{process(exp.shift)}) " +
           "#{process(exp.shift)}"
       end
 
@@ -139,7 +146,7 @@ class JsProcessor < SexpProcessor
      ########
 
       EXP = %w{
-        Number Parameter Regexp Resolve String
+        Number Regexp Resolve String
       }
       EXP.each do |type|
         define_method(:"process_#{type}") do |exp|

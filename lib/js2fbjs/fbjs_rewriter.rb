@@ -222,7 +222,7 @@ class FbjsRewriter < JsProcessor
   # var.event = function() { exp }
   def generate_event(exp, var, event)
     s(:ExpressionStatement, s(:OpEqual, s(:DotAccessor, s(:Resolve, var), event),
-		s(:FunctionExpr, FUNCTION, s() , s(:FunctionBody, exp)))
+		s(:FunctionExpr, FUNCTION, nil , s(:FunctionBody, exp)))
     )
   end
 
