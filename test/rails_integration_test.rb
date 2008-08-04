@@ -1,3 +1,4 @@
+require File.dirname(__FILE__) + '/test_helper.rb'
 require 'action_controller'
 require 'action_controller/test_process'
 
@@ -185,11 +186,4 @@ class RailsUrlHelperTest < Test::Unit::TestCase
     super(expected, actual)
   end
 
-  # stop warnings
-  UrlHelperController.append_view_path('nowhere')
-  class ActionView::Base
-    def template_format 
-      "please don't warn"
-    end
-  end
 end

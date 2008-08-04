@@ -1,3 +1,5 @@
+require File.dirname(__FILE__) + '/test_helper.rb'
+
 class RewritableJsTest < Test::Unit::TestCase
   CONFIRM_DIALOG = "var __dlg = new Dialog().showChoice('The page says:', 'Are you sure?');"
   THIS_ASSIGN = "var __obj = this;"

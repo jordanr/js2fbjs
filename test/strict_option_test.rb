@@ -1,3 +1,4 @@
+require File.dirname(__FILE__) + '/test_helper.rb'
 class StrictOptionTest < Test::Unit::TestCase
   include Js2Fbjs::Rails::Controller
   def test_raises

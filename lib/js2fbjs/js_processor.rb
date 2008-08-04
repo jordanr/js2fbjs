@@ -149,7 +149,7 @@ class JsProcessor < SexpProcessor
         Number Regexp Resolve String
       }
       EXP.each do |type|
-        define_method(:"process_#{type}") do |exp|
+        define_method("process_#{type}") do |exp|
           exp.shift.to_s
         end
       end
@@ -162,7 +162,7 @@ class JsProcessor < SexpProcessor
 	[:True, 'true']
       ]
       FIXED_EXP.each do |type, value|
-        define_method(:"process_#{type}") do |exp|
+        define_method("process_#{type}") do |exp|
 	  exp.shift # throw away
           value
         end
@@ -172,7 +172,7 @@ class JsProcessor < SexpProcessor
 	[:Break, 'break'],
 	[:Continue, 'continue'],
       ].each do |type, keyword|
-        define_method(:"process_#{type}") do |exp|
+        define_method("process_#{type}") do |exp|
 	  value = exp.shift
           "#{keyword}" + (value ? " #{value}" : '') + ';'       
         end
@@ -197,7 +197,7 @@ class JsProcessor < SexpProcessor
 	[:Void, 'void(', ')']
       ]
       PROC.each do |name, op1, op2|
-        define_method(:"process_#{name}") do |exp|
+        define_method("process_#{name}") do |exp|
           "#{op1}#{process(exp.shift)}#{op2}"
         end
       end
@@ -249,7 +249,7 @@ class JsProcessor < SexpProcessor
 	[:With, ') ', 'with(']
       ]
       PROC_PROC.each do |name, op_mid, op_pre, op_post|
-        define_method(:"process_#{name}") do |exp|
+        define_method("process_#{name}") do |exp|
           "#{op_pre}#{process(exp.shift)}#{op_mid}#{process(exp.shift)}#{op_post}"
         end
       end
@@ -263,7 +263,7 @@ class JsProcessor < SexpProcessor
 	[:SetterProperty, '','set ']
       ]
       EXP_PROC.each do |name, op_mid, op_pre, op_post|
-        define_method(:"process_#{name}") do |exp|
+        define_method("process_#{name}") do |exp|
           "#{op_pre}#{exp.shift}#{op_mid}#{process(exp.shift)}#{op_post}"
         end
       end

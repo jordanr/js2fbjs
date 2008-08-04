@@ -1,3 +1,5 @@
+require File.dirname(__FILE__) + '/test_helper.rb'
+
 class AutomaticSemicolonInsertionTest < Test::Unit::TestCase
   def test_basic_statement
     assert_fbjs('return 12;', 'return 12')

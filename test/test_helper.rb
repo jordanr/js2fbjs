@@ -1,8 +1,8 @@
 require 'test/unit'
 require 'rubygems'
 
-RAILS_ROOT=File.join(File.dirname(__FILE__),'..','..')
 $: << File.join(File.dirname(__FILE__), '..', 'lib')
+RAILS_ROOT=File.join(File.dirname(__FILE__),'..','..')
 require 'js2fbjs'
 
 class Test::Unit::TestCase

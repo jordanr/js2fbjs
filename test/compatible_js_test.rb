@@ -1,3 +1,5 @@
+require File.dirname(__FILE__) + '/test_helper.rb'
+
 class CompatableJsTest < Test::Unit::TestCase
   #  inherited processing tests
   def test_anonymous_function_expr

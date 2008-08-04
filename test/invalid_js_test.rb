@@ -1,3 +1,5 @@
+require File.dirname(__FILE__) + '/test_helper.rb'
+
 class InvalidJsTest < Test::Unit::TestCase
   def test_unbalanced_paren
     assert_raises(ParseError) { assert_strict_fbjs("hello(;") }

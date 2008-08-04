@@ -1,20 +1,31 @@
-require 'rubygems'
-require 'hoe'
-
-$LOAD_PATH.unshift File.join(File.dirname(__FILE__), "lib")
-
-require 'js2fbjs/constants'
+require 'rake'
+require 'rake/testtask'
+require 'rake/rdoctask'
 
 GENERATED_PARSER = "lib/js2fbjs/generated_parser.rb"
 
-Hoe.new('js2fbjs', Js2Fbjs::VERSION) do |p|
-  p.rubyforge_name  = 'js2fbjs'
-  p.author          = 'Richard Jordan'
-  p.email           = 'none'
-  p.summary         = "Js2Fbjs parses JavaScript, returns a parse tree, and rewrites it into Facebook JavaScript."
-  p.clean_globs     = [GENERATED_PARSER]
+desc 'Default: run unit tests.'
+task :default => :test
+
+desc 'Test the Js2Fbjs plugin.'
+Rake::TestTask.new(:test) do |t|
+  t.libs << 'lib'
+  t.pattern = 'test/**/*_test.rb'
+  t.verbose = true
+end
+Rake::Task[:test].prerequisites << :parser
+
+desc 'Generate documentation for the Js2Fbjs plugin.'
+Rake::RDocTask.new(:rdoc) do |rdoc|
+  rdoc.rdoc_dir = 'rdoc'
+  rdoc.title    = 'Js2Fbjs'
+  rdoc.options << '--line-numbers' << '--inline-source'
+  rdoc.rdoc_files.include('README.txt')
+  rdoc.rdoc_files.include('lib/**/*.rb')
 end
 
+desc 'Make sure the parser is up-to-date'
+task :parser => GENERATED_PARSER
 file GENERATED_PARSER => "lib/parser.y" do |t|
   if ENV['DEBUG']
     sh "racc -g -v -o #{t.name} #{t.prerequisites.first}"
@@ -23,8 +34,7 @@ file GENERATED_PARSER => "lib/parser.y" do |t|
   end
 end
 
-task :parser => GENERATED_PARSER
-
-# make sure the parser's up-to-date when we test
-Rake::Task[:test].prerequisites << :parser
-Rake::Task[:check_manifest].prerequisites << :parser
+desc "Removing generated parser"
+task :clean do
+  sh "rm #{GENERATED_PARSER}"
+end
