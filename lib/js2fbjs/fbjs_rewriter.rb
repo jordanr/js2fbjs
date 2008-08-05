@@ -9,6 +9,8 @@ module Js2Fbjs
 # * style.attribute => setStyle("attribute",...) or getStyle("attribute")
 class FbjsRewriter < JsProcessor
   include SexpUtility
+  
+  class BannedExtendError < StandardError; end
   # Takes the JavaScript and possibly what tag it's found in.
   def self.translate(str, tag=nil, strict = false)
     fbjstree = Js2Fbjs::Parser.new(strict).parse(str)
@@ -33,6 +35,16 @@ class FbjsRewriter < JsProcessor
 
   ############################################################
   # Tokens:
+    # objects, add more
+    JS_BASE_OBJECTS = %w{
+	Array Boolean Date Error Function Math Number Object RegExp String 
+    }
+    # From  http://www.w3schools.com/js/js_obj_htmldom.asp
+    JS_DOM_OBJECTS = %w{
+	Document Anchor Area Base Body Button Event Form Frame Frameset Iframe
+	Image Link Meta Option Select Style Table TableData TableRow Textarea
+	Window Navigator Screen History Location
+    }
     # Getters and Setters
     ONLY_GETTERS = %w{
         parentNode nextSibling previousSibling firstChild lastChild childNodes
@@ -81,6 +93,8 @@ class FbjsRewriter < JsProcessor
     FORM = 'input'
     LINK = 'a'
     FUNCTION = 'function'
+    PROTOTYPE = 'prototype'
+
     # Undefined 
     # getAbsoluteTop 	Returns the elements absolute position relative to the top of the page. Useful because of lack of offsetParent support.
     # getAbsoluteLeft 	Same as getAbsoluteTop, but horizontally. 
@@ -93,7 +107,9 @@ class FbjsRewriter < JsProcessor
   # * banned getters
   # * get style
   def rewrite_DotAccessor(exp)
-    if(GETTERS.include?(exp.last))
+    if(banned_extend?(exp))
+	raise BannedExtendError, "cannot prototype built in objects like #{exp[1].last}"
+    elsif(GETTERS.include?(exp.last))
       generate_etter(exp[1],exp.last, s(:Arguments), GET)
     elsif(style?(exp)) #  s(:dot, s(:dot, .., style), accessor)
       dot2 = exp[1] # has base, STYLE accessor
@@ -103,6 +119,11 @@ class FbjsRewriter < JsProcessor
       exp
     end
   end	
+
+  def banned_extend?(exp)
+    type?(exp, :DotAccessor) and type?(exp[1], :Resolve) and (exp.last == PROTOTYPE) and
+	(JS_BASE_OBJECTS.include?(exp[1].last) || JS_DOM_OBJECTS.include?(exp[1].last))
+  end
 
   # Takes care of:
   # * confirms with no callbacks

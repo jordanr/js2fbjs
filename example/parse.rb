@@ -7,9 +7,9 @@ require 'js2fbjs/fbjs_rewriter'
 filename = 'example/test.js'
 jsfile = File.open(filename).read
 
-#puts FbjsRewriter.translate(jsfile)
 
 p Js2Fbjs::Parser.new.parse(jsfile)
 
-puts Js2Fbjs::JsProcessor.translate(jsfile)
+puts Js2Fbjs::FbjsRewriter.translate(jsfile)
+#puts Js2Fbjs::JsProcessor.translate(jsfile)
 
