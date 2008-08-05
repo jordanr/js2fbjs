@@ -10,7 +10,9 @@ module Js2Fbjs
 class FbjsRewriter < JsProcessor
   include SexpUtility
   
+  class AmbiguousAccessorError < StandardError; end
   class BannedExtendError < StandardError; end
+
   # Takes the JavaScript and possibly what tag it's found in.
   def self.translate(str, tag=nil, strict = false)
     fbjstree = Js2Fbjs::Parser.new(strict).parse(str)
@@ -71,12 +73,12 @@ class FbjsRewriter < JsProcessor
     STYLE = 'style'
 
     # innerText && textContent => setTextValue
-    #    SPECIALS = {
-    #	{ 'innerText' => 'setTextValue' },
-    #	{ 'textContent' => 'setTextValue' }
-    #}
+    SPECIAL_SETTERS = { 
+	'innerText' => 'setTextValue' , 
+	'textContent' => 'setTextValue' }
+    
     # innerHtml => setInnerFBML || setInnerXHTML
-    # AMBIGUOUS = { 'innerHtml' => 'setInnerFBML' }
+    AMBIGUOUS = { 'innerHtml' => ['setInnerFBML', 'setInnerXHTML'] }
 
     # Dialogs
     DIALOG = 'Dialog'
@@ -109,6 +111,8 @@ class FbjsRewriter < JsProcessor
   def rewrite_DotAccessor(exp)
     if(banned_extend?(exp))
 	raise BannedExtendError, "cannot prototype built in objects like #{exp[1].last}"
+    elsif(ambiguous?(exp))
+	raise AmbiguousAccessorError, "#{exp.last} could be #{AMBIGUOUS[exp.last].join(' or ')}"
     elsif(GETTERS.include?(exp.last))
       generate_etter(exp[1],exp.last, s(:Arguments), GET)
     elsif(style?(exp)) #  s(:dot, s(:dot, .., style), accessor)
@@ -120,16 +124,14 @@ class FbjsRewriter < JsProcessor
     end
   end	
 
-  def banned_extend?(exp)
-    type?(exp, :DotAccessor) and type?(exp[1], :Resolve) and (exp.last == PROTOTYPE) and
-	(JS_BASE_OBJECTS.include?(exp[1].last) || JS_DOM_OBJECTS.include?(exp[1].last))
-  end
-
   # Takes care of:
-  # * confirms with no callbacks
+  # * confirm(message) => var __dlg = new Dialog().showChoice(TITLE, message);
+  # * alert(message)   => var __dlg = new Dialog().showMessage(TITLE, message);
   def rewrite_ExpressionStatement(exp)
     if(confirm?(exp.last) )	
         generate_confirm(exp.last) || exp
+    elsif(alert?(exp.last) )
+        generate_alert(exp.last) || exp
     else	
 	exp
     end
@@ -175,12 +177,16 @@ class FbjsRewriter < JsProcessor
   end
 
   # Takes care of:
-  # * banned setters
-  # * set style
+  # * obj.setter = value => obj.setSetter(value);
+  # * obj.special_key = value => obj.setSpecialKeyValue(value);
+  # * obj.style.attr = value => obj.setStyle(value); 
   def rewrite_OpEqual(exp)
     if(etter?(exp[1], SET) )
       dot = exp[1]
       generate_etter(dot[1],dot[2], exp.pop)
+    elsif(special?(exp[1]) )
+      dot = exp[1]
+      generate_etter(dot[1],SPECIAL_SETTERS[dot[2]], exp.pop, nil)
     elsif(style?(exp[1]) )
       dot1 = exp[1] # has new arg
       dot2 = dot1[1] # has base, STYLE accessor
@@ -240,6 +246,17 @@ class FbjsRewriter < JsProcessor
     ) )
   end
 
+  def generate_alert(exp)
+    if(not type?(exp.last, :Arguments) or (exp.last.length-1 != DIALOG_ARGS) )
+      # $stderr.puts "WARNING: Tried to rewrite #{ALERT} with #{exp.last.length-1} arguments instead of #{DIALOG_ARGS}" 
+      return nil
+    end
+    generate_var_assign(DIALOG_VAR,  s(:FunctionCall, 
+	s(:DotAccessor, s(:NewExpr, s(:Resolve, DIALOG)), ALERT_ACCESSOR),
+	s(:Arguments, s(:String, "'#{DIALOG_TITLE}'"), exp.pop) 
+    ) )
+  end
+
   # var.event = function() { exp }
   def generate_event(exp, var, event)
     s(:ExpressionStatement, s(:OpEqual, s(:DotAccessor, s(:Resolve, var), event),
@@ -270,6 +287,15 @@ class FbjsRewriter < JsProcessor
   end
   ############################################################
   # Utility Methods: 
+  def banned_extend?(exp)
+    type?(exp, :DotAccessor) and type?(exp[1], :Resolve) and (exp.last == PROTOTYPE) and
+	(JS_BASE_OBJECTS.include?(exp[1].last) || JS_DOM_OBJECTS.include?(exp[1].last))
+  end
+
+  def ambiguous?(exp)
+    type?(exp, :DotAccessor) and AMBIGUOUS.keys.include?(exp.last)
+  end
+
   def style?(exp)
     type?(exp, :DotAccessor) && type?(exp[1], :DotAccessor) && exp[1].last == STYLE
   end
@@ -280,6 +306,14 @@ class FbjsRewriter < JsProcessor
 
   def confirm?(exp)
     type?(exp, :FunctionCall) && type?(exp[1], :Resolve) && exp[1].last==CONFIRM
+  end
+
+  def alert?(exp)
+    type?(exp, :FunctionCall) && type?(exp[1], :Resolve) && exp[1].last==ALERT
+  end
+
+  def special?(exp)
+    type?(exp, :DotAccessor) && SPECIAL_SETTERS.keys.include?(exp.last)
   end
 
   def etter?(exp, set_or_get)

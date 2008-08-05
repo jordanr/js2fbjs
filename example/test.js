@@ -1,1 +1,1 @@
-Window.prototype;
+a.innerHtml = 'what';

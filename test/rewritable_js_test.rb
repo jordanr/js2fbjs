@@ -2,11 +2,15 @@ require File.dirname(__FILE__) + '/test_helper.rb'
 
 class RewritableJsTest < Test::Unit::TestCase
   CONFIRM_DIALOG = "var __dlg = new Dialog().showChoice('The page says:', 'Are you sure?');"
+  ALERT_DIALOG = "var __dlg = new Dialog().showMessage('The page says:', 'Watch out!');"
   THIS_ASSIGN = "var __obj = this;"
   FORM_CONFIRM = "__dlg.onconfirm = function() { __obj.getForm().submit(); };"
   LINK_CONFIRM = "__dlg.onconfirm = function() { document.setLocation(__obj.getHref()); };"
 
   # rewriting tests
+  def test_set_special
+    assert_fbjs("a.setTextValue('blue');", "a.innerText = 'blue';")
+  end
 
   Js2Fbjs::FbjsRewriter::GETTERS.each do |getter|
     define_method(:"test_get_for_#{getter}") do
@@ -38,6 +42,14 @@ class RewritableJsTest < Test::Unit::TestCase
 
   def test_confirm_expression
     assert_fbjs(CONFIRM_DIALOG, "confirm('Are you sure?');")
+  end
+
+  def test_alert_expression
+    assert_fbjs(ALERT_DIALOG, "alert('Watch out!');")
+  end
+
+  def test_alert_expression_with_too_many_args
+    assert_fbjs("alert('Watch out!', 'I mean it.');")
   end
 
   def test_confirm_expression_with_too_many_args
