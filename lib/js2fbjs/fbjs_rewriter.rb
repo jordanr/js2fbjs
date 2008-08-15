@@ -8,7 +8,7 @@ module Js2Fbjs
 # * setAttribute => setWidth, setAction, ...
 # * style.attribute => setStyle("attribute",...) or getStyle("attribute")
 class FbjsRewriter < JsProcessor
-  include SexpUtility
+  include SexpUtility, SexpMatchSpecials
   
   class AmbiguousAccessorError < StandardError; end
   class BannedExtendError < StandardError; end
@@ -47,6 +47,8 @@ class FbjsRewriter < JsProcessor
 	Image Link Meta Option Select Style Table TableData TableRow Textarea
 	Window Navigator Screen History Location
     }
+    BANNED_EXTENDORS = JS_BASE_OBJECTS + JS_DOM_OBJECTS
+  
     # Getters and Setters
     ONLY_GETTERS = %w{
         parentNode nextSibling previousSibling firstChild lastChild childNodes
@@ -85,6 +87,7 @@ class FbjsRewriter < JsProcessor
     DIALOG_TITLE = 'The page says:'
     DIALOG_ARGS = 1
     CONFIRM = 'confirm'
+
     CONFIRM_ACCESSOR = 'showChoice'
     ALERT = 'alert' 
     ALERT_ACCESSOR = 'showMessage'
@@ -109,49 +112,40 @@ class FbjsRewriter < JsProcessor
   # * banned getters
   # * get style
   def rewrite_DotAccessor(exp)
-    if(banned_extend?(exp))
-	raise BannedExtendError, "cannot prototype built in objects like #{exp[1].last}"
-    elsif(ambiguous?(exp))
-	raise AmbiguousAccessorError, "#{exp.last} could be #{AMBIGUOUS[exp.last].join(' or ')}"
-    elsif(GETTERS.include?(exp.last))
-      generate_etter(exp[1],exp.last, s(:Arguments), GET)
-    elsif(style?(exp)) #  s(:dot, s(:dot, .., style), accessor)
-      dot2 = exp[1] # has base, STYLE accessor
-      arg = exp.last
-      generate_etter(dot2[1], STYLE, s(:Arguments, s(:String, "'#{arg}'")), GET)
-    else
-      exp
+    case(exp)
+     when BANNED_EXTEND_EXP(): raise BannedExtendError, "cannot prototype built in objects like #{exp[1].last}"
+     when AMBIGUOUS_EXP(): raise AmbiguousAccessorError, "#{exp.last} could be #{AMBIGUOUS[exp.last].join(' or ')}"
+     when GETTER_EXP(): FBJS_GETTER_EXP(exp[1], exp.last)
+     when STYLE_EXP(): FBJS_GET_STYLE_EXP(exp[1][1], exp.last)
+     else exp
     end
-  end	
+  end
 
   # Takes care of:
   # * confirm(message) => var __dlg = new Dialog().showChoice(TITLE, message);
   # * alert(message)   => var __dlg = new Dialog().showMessage(TITLE, message);
   def rewrite_ExpressionStatement(exp)
-    if(confirm?(exp.last) )	
-        generate_confirm(exp.last) || exp
-    elsif(alert?(exp.last) )
-        generate_alert(exp.last) || exp
-    else	
-	exp
+    case(exp)
+      when CONFIRM_EXP(): generate_confirm(exp.last) || exp
+      when ALERT_EXP(): generate_alert(exp.last) || exp
+      else exp
     end
   end
 
   # Takes care of:
   # * setAttribute
   def rewrite_FunctionCall(exp)
-    if(set_attribute?(exp))
+    case(exp)
+      when SET_ATTRIBUTE_EXP():
 	dot = exp[1]
-	if not type?(exp.last, :Arguments) or (exp.last.length-1 != SET_ATTR_ARGS)
-#	  $stderr.puts "WARNING: Tried to rewrite #{SET_ATTR} with #{exp.last.length-1} arguments instead of #{SET_ATTR_ARGS}" 
+	if not type?(exp.last, :Arguments) or (exp.last.length-1 != SET_ATTR_ARGS) # user defined func
           exp
 	else	  
 	  attribute = exp.last[1].last 
           attribute.gsub!(/'([a-z]+)'/,'\1')
 	  generate_etter(dot[1], attribute, s(:Arguments, exp.last.pop))
 	end
-    else	
-	exp
+      else exp
     end
   end
 
@@ -181,18 +175,18 @@ class FbjsRewriter < JsProcessor
   # * obj.special_key = value => obj.setSpecialKeyValue(value);
   # * obj.style.attr = value => obj.setStyle(value); 
   def rewrite_OpEqual(exp)
-    if(etter?(exp[1], SET) )
-      dot = exp[1]
-      generate_etter(dot[1],dot[2], exp.pop)
-    elsif(special?(exp[1]) )
-      dot = exp[1]
-      generate_etter(dot[1],SPECIAL_SETTERS[dot[2]], exp.pop, nil)
-    elsif(style?(exp[1]) )
-      dot1 = exp[1] # has new arg
-      dot2 = dot1[1] # has base, STYLE accessor
-      generate_etter(dot2[1], STYLE,  s(:Arguments, s(:String, "'#{dot1.last}'"), exp.pop) )
-    else
-      exp	
+    case(exp)
+      when SET_OP_EQUAL(): # if(etter?(exp[1], SET) )
+        dot = exp[1]
+        generate_etter(dot[1],dot[2], exp.pop)
+      when SPECIAL_OP_EQUAL(): # elsif(special?(exp[1]) )
+        dot = exp[1]
+        generate_etter(dot[1],SPECIAL_SETTERS[dot[2]], exp.pop, nil)
+      when STYLE_OP_EQUAL(): # elsif(style?(exp[1]) )
+        dot1 = exp[1] # has new arg
+        dot2 = dot1[1] # has base, STYLE accessor
+        generate_etter(dot2[1], STYLE,  s(:Arguments, s(:String, "'#{dot1.last}'"), exp.pop) )
+      else exp	
     end
   end
 
@@ -221,7 +215,7 @@ class FbjsRewriter < JsProcessor
 	result.push(generate_event(generate_confirm_link_callback(), DIALOG_VAR, ONCONFIRM))
       else
 	result.push(confirm)
-      end
+      end 
       result.push(s(:Return, s(:False, 'false')) )
     else
       exp
@@ -264,6 +258,13 @@ class FbjsRewriter < JsProcessor
     )
   end
 
+
+  # generate_etter(exp[1],exp.last, s(:Arguments), GET) 
+  def FBJS_GETTER_EXP(o, accessor); s(:FunctionCall, s(:DotAccessor, o, etter(accessor, GET)), s(:Arguments)); end
+
+  #  generate_etter(dot2[1], STYLE, s(:Arguments, s(:String, "'#{arg}'")), GET)
+  def FBJS_GET_STYLE_EXP(o, arg); s(:FunctionCall, s(:DotAccessor, o, etter(STYLE, GET)), s(:Arguments, s(:String, "'#{arg}'"))); end
+
   # object.getAccessor(), object.setAccessor(args)
   def generate_etter(object, accessor, args, set_or_get=SET)
     s(:FunctionCall, s(:DotAccessor, object, etter(accessor, set_or_get) ), args )
@@ -287,22 +288,17 @@ class FbjsRewriter < JsProcessor
   end
   ############################################################
   # Utility Methods: 
-  def banned_extend?(exp)
-    type?(exp, :DotAccessor) and type?(exp[1], :Resolve) and (exp.last == PROTOTYPE) and
-	(JS_BASE_OBJECTS.include?(exp[1].last) || JS_DOM_OBJECTS.include?(exp[1].last))
-  end
 
-  def ambiguous?(exp)
-    type?(exp, :DotAccessor) and AMBIGUOUS.keys.include?(exp.last)
-  end
-
-  def style?(exp)
-    type?(exp, :DotAccessor) && type?(exp[1], :DotAccessor) && exp[1].last == STYLE
-  end
-
-  def set_attribute?(exp)
-    type?(exp, :FunctionCall)&& type?(exp[1], :DotAccessor) && exp[1].last==SET_ATTR
-  end
+  def CONFIRM_EXP(); s(:ExpressionStatement, s(:FunctionCall, s(:Resolve, CONFIRM), ANY())); end
+  def ALERT_EXP(); s(:ExpressionStatement, s(:FunctionCall, s(:Resolve, ALERT), ANY())); end
+  def BANNED_EXTEND_EXP(); s(:DotAccessor, s(:Resolve, ONE_OF(BANNED_EXTENDORS)), PROTOTYPE); end
+  def AMBIGUOUS_EXP(); s(:DotAccessor, ANY(), ONE_OF(AMBIGUOUS.keys)); end
+  def STYLE_EXP(); s(:DotAccessor, s(:DotAccessor, ANY(), STYLE), ANY()); end
+  def GETTER_EXP(); s(:DotAccessor, ANY(), ONE_OF(GETTERS)); end
+  def SET_ATTRIBUTE_EXP(); s(:FunctionCall, s(:DotAccessor, ANY(), SET_ATTR), ANY()); end
+  def SET_OP_EQUAL(); s(:OpEqual, s(:DotAccessor, ANY(), ONE_OF(SETTERS)), ANY()); end
+  def SPECIAL_OP_EQUAL(); s(:OpEqual, s(:DotAccessor, ANY(), ONE_OF(SPECIAL_SETTERS.keys)), ANY()); end
+  def STYLE_OP_EQUAL(); s(:OpEqual, STYLE_EXP(), ANY()); end
 
   def confirm?(exp)
     type?(exp, :FunctionCall) && type?(exp[1], :Resolve) && exp[1].last==CONFIRM
@@ -310,10 +306,6 @@ class FbjsRewriter < JsProcessor
 
   def alert?(exp)
     type?(exp, :FunctionCall) && type?(exp[1], :Resolve) && exp[1].last==ALERT
-  end
-
-  def special?(exp)
-    type?(exp, :DotAccessor) && SPECIAL_SETTERS.keys.include?(exp.last)
   end
 
   def etter?(exp, set_or_get)

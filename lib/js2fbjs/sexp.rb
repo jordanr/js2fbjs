@@ -67,9 +67,9 @@ class Sexp < Array
 
     return true if pattern == sexp
 
-    sexp.each do |subset|
-      return true if pattern === subset
-    end
+#    sexp.each do |subset|
+#      return true if pattern === subset
+ #   end
 
     return nil
   end
@@ -233,24 +233,32 @@ class Sexp < Array
 
 end
 
-class SexpMatchSpecial < Sexp; end
-
-class SexpAny < SexpMatchSpecial
+class Any
   def ==(o)
-    Sexp === o
-  end
-
-  def ===(o)
-    return Sexp === o
+    true
   end
 
   def inspect
     "ANY"
   end
 end
+class OneOf
+  def initialize(p)
+    @posibles = p
+  end
+ 
+  def ==(o)
+    @posibles.include?(o)
+  end
+
+  def inspect
+    "ONE OF #{@posibles}"
+  end
+end
 
 module SexpMatchSpecials
-  def ANY(); return SexpAny.new; end
+  def ANY(); return Any.new; end
+  def ONE_OF(p); return OneOf.new(p); end
 end
 
 module SexpUtility
