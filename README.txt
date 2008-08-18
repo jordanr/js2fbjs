@@ -6,7 +6,8 @@
 This library will parse JavaScript and translate it 
 into Facebook JavaScript.
 
-Check out the FBJS test console at http://apps.new.facebook.com/jstofbjs/.
+Check out the FBJS test console at http://apps.new.facebook.com/jstofbjs/
+(you may have to copy and paste the url).
 
 == Features
 * Integrates with Facebooker
