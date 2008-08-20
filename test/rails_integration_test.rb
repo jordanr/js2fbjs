@@ -6,19 +6,97 @@ ActionController::Routing::Routes.draw do |map|
   map.connect ':controller/:action/:id'
 end
 
-class RailsUrlHelperTest < Test::Unit::TestCase
+module TestUtilities
+  # Ignore whitespace
+  def assert_equal(expected, actual)
+    actual = actual.gsub(/\n/, ' ').gsub(/\s+/, ' ')
+    expected = expected.gsub(/\n/, ' ').gsub(/\s+/, ' ')
+    super(expected, actual)
+  end
+end
+
+
+class TestController < ActionController::Base
+  include Js2Fbjs::Rails::Controller
+  after_filter :translate_js_to_fbjs
+
+  private
+  def rescue_action(e) raise e end 
+
+  def protect_against_forgery?
+     false
+  end
+
+  def request_is_for_a_facebook_canvas?
+    !params['fb_sig_in_canvas'].blank?
+  end
+end
+
+class RailsTest < Test::Unit::TestCase
+  include TestUtilities
   LABEL = "Test"
   URL = "test.host"
   CONTENT = "r u sure?"
   TITLE = "The page says:"
 
-  class UrlHelperController < ActionController::Base
-    include ActionView::Helpers::UrlHelper
-    include ActionView::Helpers::TagHelper
+
+  class RailsController < TestController
     include Js2Fbjs::Rails::Controller
   
     after_filter :translate_js_to_fbjs
+   
+    def single_quoted_javascript
+      render :text => "<a href=\"#{URL}\" onclick=\'return confirm(\"#{CONTENT}\");\'>#{LABEL}</a>"
+    end
 
+    def whitespace_before_quoted_javascript
+      render :text => "<a href=\"#{URL}\" onclick = \"return confirm(\'#{CONTENT}\');\">#{LABEL}</a>"
+    end
+
+    def script_tagged_javascript
+      render :text => "<script>confirm(\'#{CONTENT}\');</script>"
+    end
+  end
+
+  def setup
+    @controller = RailsController.new
+    @request    = ActionController::TestRequest.new
+    @response   = ActionController::TestResponse.new
+  end
+
+  def test_single_quoted_javascript_for_canvas
+    get :single_quoted_javascript, {"fb_sig_in_canvas"=>"1"}
+    assert_equal( "<a href=\"#{URL}\" onclick=\"var __obj = this; var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
+                 " __dlg.onconfirm = function() { " +
+                 "document.setLocation(__obj.getHref()); }; return false;\">#{LABEL}</a>", @response.body)
+  end
+
+  def test_whitespace_before_quoted_javascript_for_canvas
+    get :whitespace_before_quoted_javascript, {"fb_sig_in_canvas"=>"1"}
+    assert_equal( "<a href=\"#{URL}\" onclick = \"var __obj = this; var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
+                 " __dlg.onconfirm = function() { " +
+                 "document.setLocation(__obj.getHref()); }; return false;\">#{LABEL}</a>", @response.body)
+  end
+
+  def test_script_tagged_javascript_for_canvas
+    get :script_tagged_javascript, {"fb_sig_in_canvas"=>"1"}
+    assert_equal( "<script>"+
+		  "var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
+		  "</script>", @response.body)
+  end
+end
+
+class RailsUrlHelperTest < Test::Unit::TestCase
+  include TestUtilities
+  LABEL = "Test"
+  URL = "test.host"
+  CONTENT = "r u sure?"
+  TITLE = "The page says:"
+
+  class UrlHelperController < TestController
+    include ActionView::Helpers::UrlHelper
+    include ActionView::Helpers::TagHelper
+  
     def link_to_without
       render :text => self.link_to(LABEL, URL)
     end
@@ -42,30 +120,6 @@ class RailsUrlHelperTest < Test::Unit::TestCase
     def button_to_with_confirm
       render :text => self.button_to(LABEL, URL, :confirm=>CONTENT)
     end
-
-    def single_quoted_javascript
-      render :text => "<a href=\"#{URL}\" onclick=\'return confirm(\"#{CONTENT}\");\'>#{LABEL}</a>"
-    end
-
-    def whitespace_before_quoted_javascript
-      render :text => "<a href=\"#{URL}\" onclick = \"return confirm(\'#{CONTENT}\');\">#{LABEL}</a>"
-    end
-
-    def script_tagged_javascript
-      render :text => "<script>confirm(\'#{CONTENT}\');</script>"
-    end
-      
-    private
-    def rescue_action(e) raise e end 
-
-    def protect_against_forgery?
-       false
-    end
-
-    def request_is_for_a_facebook_canvas?
-      !params['fb_sig_in_canvas'].blank?
-    end
-
   end
 
   def setup
@@ -156,34 +210,35 @@ class RailsUrlHelperTest < Test::Unit::TestCase
                  "<input onclick=\"return confirm(\'#{CONTENT}\');\" type=\"submit\" value=\"#{LABEL}\" /></div></form>",
                  @response.body
   end
+end
 
-  def test_single_quoted_javascript_for_canvas
-    get :single_quoted_javascript, {"fb_sig_in_canvas"=>"1"}
-    assert_equal( "<a href=\"#{URL}\" onclick=\"var __obj = this;var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
-                 "__dlg.onconfirm = function() { " +
-                 "document.setLocation(__obj.getHref()); };return false;\">#{LABEL}</a>", @response.body)
+class PrototypeHelperTest < Test::Unit::TestCase
+  include TestUtilities
+  LABEL = "Test"
+  URL = "test.host"
+  CONTENT = "r u sure?"
+  TITLE = "The page says:"
+
+  class UrlHelperController < TestController
+    include ActionView::Helpers::PrototypeHelper
+    include ActionView::Helpers::UrlHelper
+    include ActionView::Helpers::TagHelper
+   
+
+    def link_to_remote_without
+      render :text=>self.link_to_remote(LABEL, :url=>URL)
+    end
   end
 
-  def test_whitespace_before_quoted_javascript_for_canvas
-    get :whitespace_before_quoted_javascript, {"fb_sig_in_canvas"=>"1"}
-    assert_equal( "<a href=\"#{URL}\" onclick = \"var __obj = this;var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
-                 "__dlg.onconfirm = function() { " +
-                 "document.setLocation(__obj.getHref()); };return false;\">#{LABEL}</a>", @response.body)
+  def setup
+    @controller = UrlHelperController.new
+    @request    = ActionController::TestRequest.new
+    @response   = ActionController::TestResponse.new
   end
 
-  def test_script_tagged_javascript_for_canvas
-    get :script_tagged_javascript, {"fb_sig_in_canvas"=>"1"}
-    assert_equal( "<script>"+
-		  "var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
-		  "</script>", @response.body)
+  def test_link_to_remote_without
+    get :link_to_remote_without
+    assert_equal @response.body, 
+	"<a href=\"#\" onclick=\"new Ajax.Request(\'#{URL}\', {asynchronous:true, evalScripts:true}); return false;\">#{LABEL}</a>"
   end
-
-  private
-  # Ignore whitespace
-  def assert_equal(expected, actual)
-    actual = actual.gsub(/\n/, ' ').gsub(/\s+/, ' ')
-    expected = expected.gsub(/\n/, ' ').gsub(/\s+/, ' ')
-    super(expected, actual)
-  end
-
 end
