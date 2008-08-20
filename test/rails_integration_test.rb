@@ -13,6 +13,10 @@ module TestUtilities
     expected = expected.gsub(/\n/, ' ').gsub(/\s+/, ' ')
     super(expected, actual)
   end
+
+  def for_canvas
+    {"fb_sig_in_canvas"=>"1"}  
+  end
 end
 
 
@@ -65,21 +69,21 @@ class RailsTest < Test::Unit::TestCase
   end
 
   def test_single_quoted_javascript_for_canvas
-    get :single_quoted_javascript, {"fb_sig_in_canvas"=>"1"}
+    get :single_quoted_javascript, for_canvas
     assert_equal( "<a href=\"#{URL}\" onclick=\"var __obj = this; var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
                  " __dlg.onconfirm = function() { " +
                  "document.setLocation(__obj.getHref()); }; return false;\">#{LABEL}</a>", @response.body)
   end
 
   def test_whitespace_before_quoted_javascript_for_canvas
-    get :whitespace_before_quoted_javascript, {"fb_sig_in_canvas"=>"1"}
+    get :whitespace_before_quoted_javascript, for_canvas
     assert_equal( "<a href=\"#{URL}\" onclick = \"var __obj = this; var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
                  " __dlg.onconfirm = function() { " +
                  "document.setLocation(__obj.getHref()); }; return false;\">#{LABEL}</a>", @response.body)
   end
 
   def test_script_tagged_javascript_for_canvas
-    get :script_tagged_javascript, {"fb_sig_in_canvas"=>"1"}
+    get :script_tagged_javascript, for_canvas
     assert_equal( "<script>"+
 		  "var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
 		  "</script>", @response.body)
@@ -129,7 +133,7 @@ class RailsUrlHelperTest < Test::Unit::TestCase
   end
 
   def test_link_to_without_for_canvas
-    get :link_to_without, {"fb_sig_in_canvas"=>"1"}
+    get :link_to_without, for_canvas
     assert_equal("<a href=\"#{URL}\">#{LABEL}</a>", @response.body)
   end
   def test_link_to_without_for_non_canvas
@@ -138,7 +142,7 @@ class RailsUrlHelperTest < Test::Unit::TestCase
   end
 
   def test_link_to_with_confirm_for_canvas
-    get :link_to_with_confirm, {"fb_sig_in_canvas"=>"1"}
+    get :link_to_with_confirm, for_canvas
     assert_equal( "<a href=\"#{URL}\" onclick=\"var __obj = this;var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
                  "__dlg.onconfirm = function() { " + 
                  "document.setLocation(__obj.getHref()); };return false;\">#{LABEL}</a>", @response.body)
@@ -150,7 +154,7 @@ class RailsUrlHelperTest < Test::Unit::TestCase
   end
 
   def test_link_to_with_method_for_canvas
-    get :link_to_with_method, {"fb_sig_in_canvas"=>"1"}
+    get :link_to_with_method, for_canvas
     assert_equal( "<a href=\"#{URL}\" onclick=\"var f = document.createElement('form'); f.setStyle('display', 'none'); "+
                  "this.getParentNode().appendChild(f); f.setMethod('POST'); f.setAction(this.getHref()); " +
                  "var m = document.createElement('input'); m.setType('hidden'); "+
@@ -168,7 +172,7 @@ class RailsUrlHelperTest < Test::Unit::TestCase
   end
 
  def test_link_to_with_confirm_and_method_for_canvas
-    get :link_to_with_confirm_and_method, {"fb_sig_in_canvas"=>"1"}
+    get :link_to_with_confirm_and_method, for_canvas
     assert_equal( "<a href=\"#{URL}\" onclick=\"var __obj = this;var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
                  "__dlg.onconfirm = function() { " + 
                  "var f = document.createElement('form'); f.setStyle('display', 'none'); "+
@@ -186,7 +190,7 @@ class RailsUrlHelperTest < Test::Unit::TestCase
   end
 
   def test_button_to_without_for_canvas
-    get :button_to_without, {"fb_sig_in_canvas"=>"1"}
+    get :button_to_without, for_canvas
     assert_equal "<form method=\"post\" action=\"#{URL}\" class=\"button-to\"><div>" +
                  "<input type=\"submit\" value=\"#{LABEL}\" /></div></form>", @response.body
   end
@@ -197,7 +201,7 @@ class RailsUrlHelperTest < Test::Unit::TestCase
   end
 
   def test_button_to_with_confirm_for_canvas
-    get :button_to_with_confirm, {"fb_sig_in_canvas"=>"1"}
+    get :button_to_with_confirm, for_canvas
     assert_equal "<form method=\"post\" action=\"#{URL}\" class=\"button-to\"><div>" +
                  "<input onclick=\"var __obj = this;var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
                  "__dlg.onconfirm = function() { "+
@@ -219,26 +223,68 @@ class PrototypeHelperTest < Test::Unit::TestCase
   CONTENT = "r u sure?"
   TITLE = "The page says:"
 
-  class UrlHelperController < TestController
+  class PrototypeHelperController < TestController
     include ActionView::Helpers::PrototypeHelper
     include ActionView::Helpers::UrlHelper
     include ActionView::Helpers::TagHelper
-   
 
-    def link_to_remote_without
-      render :text=>self.link_to_remote(LABEL, :url=>URL)
+    def remote_function_without
+      render :text=>"<script>#{self.remote_function(:url=>URL)}</script>"
+    end
+
+    def remote_function_with_confirm
+      render :text=>"<script>#{self.remote_function({:url=>URL, :confirm=>CONTENT})}</script>"
+    end
+
+    def submit_to_remote_without
+      render :text=>self.submit_to_remote(LABEL, LABEL, :url=>URL)
     end
   end
 
   def setup
-    @controller = UrlHelperController.new
+    @controller = PrototypeHelperController.new
     @request    = ActionController::TestRequest.new
     @response   = ActionController::TestResponse.new
   end
 
-  def test_link_to_remote_without
-    get :link_to_remote_without
-    assert_equal @response.body, 
-	"<a href=\"#\" onclick=\"new Ajax.Request(\'#{URL}\', {asynchronous:true, evalScripts:true}); return false;\">#{LABEL}</a>"
+  def test_remote_function_without_for_canvas
+    get :remote_function_without, for_canvas
+    assert_equal "<script>new Ajax.Request('#{URL}', { asynchronous: true, evalScripts: true });</script>",
+	@response.body
   end
+
+  def test_remote_function_without_for_non_canvas
+    get :remote_function_without
+    assert_equal "<script>new Ajax.Request('#{URL}', {asynchronous:true, evalScripts:true})</script>",
+	@response.body
+  end
+
+  def test_remote_function_with_confirm_for_canvas
+    get :remote_function_with_confirm, for_canvas
+    assert_equal "<script>var __obj = this;var __dlg = new Dialog().showChoice(\'#{TITLE}\', \'#{CONTENT}\');"+
+	"__dlg.onconfirm = function() { new Ajax.Request('#{URL}', { asynchronous: true, evalScripts: true }); "+
+	"};</script>",
+	@response.body
+  end
+
+  def test_remote_function_with_confirm_for_non_canvas
+    get :remote_function_with_confirm
+    assert_equal "<script>if (confirm('#{CONTENT}')) { new Ajax.Request('#{URL}', {asynchronous:true, "+
+	"evalScripts:true}); }</script>",
+	@response.body
+  end  
+
+  def test_submit_to_remote_without_for_canvas
+    get :submit_to_remote_without, for_canvas
+    assert_equal "<input name=\"#{LABEL}\" onclick=\"new Ajax.Request('#{URL}', { asynchronous: true, "+
+		"evalScripts: true, parameters: Form.serialize(this.getForm()) }); return false;\" "+
+		"type=\"button\" value=\"#{LABEL}\" />", @response.body
+  end
+
+  def test_submit_to_remote_without_for_non_canvas
+    get :submit_to_remote_without
+    assert_equal "<input name=\"#{LABEL}\" onclick=\"new Ajax.Request('#{URL}', {asynchronous:true, "+
+		 "evalScripts:true, parameters:Form.serialize(this.form)}); return false;\" "+
+		 "type=\"button\" value=\"#{LABEL}\" />", @response.body
+  end  
 end
