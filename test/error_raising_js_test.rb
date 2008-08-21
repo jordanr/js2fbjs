@@ -16,4 +16,8 @@ class ErrorRaisingJsTest < Test::Unit::TestCase
 	Js2Fbjs::FbjsRewriter.translate("a.innerHtml = 'what';") 
     }
   end
+
+  def test_raises_banned_object
+    assert_raises(Js2Fbjs::FbjsRewriter::BannedObjectError) { Js2Fbjs::FbjsRewriter.translate("window.anything;") }
+  end
 end

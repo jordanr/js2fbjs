@@ -13,6 +13,7 @@ class FbjsRewriter < JsProcessor
   # Errors  
   class AmbiguousAccessorError < StandardError; end
   class BannedExtendError < StandardError; end
+  class BannedObjectError < StandardError; end
 
   # Takes the JavaScript and possibly what tag it's found in.
   def self.translate(str, tag=nil, strict = false)
@@ -50,6 +51,7 @@ class FbjsRewriter < JsProcessor
     }
     BANNED_EXTENDORS = JS_BASE_OBJECTS + JS_DOM_OBJECTS
   
+    BANNED_OBJECTS = %w{ window }
     # Getters and Setters
     ONLY_GETTERS = %w{
         parentNode nextSibling previousSibling firstChild lastChild childNodes
@@ -116,6 +118,7 @@ class FbjsRewriter < JsProcessor
     case(exp)
      when BANNED_EXTEND_DOT(): raise BannedExtendError, "cannot prototype built in objects like #{exp[1].last}"
      when AMBIGUOUS_DOT(): raise AmbiguousAccessorError, "#{exp.last} could be #{AMBIGUOUS[exp.last].join(' or ')}"
+     when BANNED_OBJECT_DOT(): raise BannedObjectError, "cannot use #{exp[1].last} ever"
      when GETTER_DOT(): generate_getter(exp[1], exp.last)
      when STYLE_DOT(): generate_get_style(exp[1][1], exp.last)
      else exp
@@ -282,6 +285,7 @@ class FbjsRewriter < JsProcessor
   def CONFIRM_EXP(); s(:ExpressionStatement, s(:FunctionCall, s(:Resolve, CONFIRM), ANY())); end
   def ALERT_EXP(); s(:ExpressionStatement, s(:FunctionCall, s(:Resolve, ALERT), ANY())); end
   def BANNED_EXTEND_DOT(); s(:DotAccessor, s(:Resolve, ONE_OF(BANNED_EXTENDORS)), PROTOTYPE); end
+  def BANNED_OBJECT_DOT(); s(:DotAccessor, s(:Resolve, ONE_OF(BANNED_OBJECTS)), ANY()); end
   def AMBIGUOUS_DOT(); s(:DotAccessor, ANY(), ONE_OF(AMBIGUOUS.keys)); end
   def STYLE_DOT(); s(:DotAccessor, s(:DotAccessor, ANY(), STYLE), ANY()); end
   def GETTER_DOT(); s(:DotAccessor, ANY(), ONE_OF(GETTERS)); end
